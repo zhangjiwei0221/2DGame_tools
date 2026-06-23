@@ -1,0 +1,777 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f7f8fa" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%234f46e5'/%3E%3Ctext x='32' y='41' text-anchor='middle' font-family='Arial, sans-serif' font-size='28' font-weight='700' fill='white'%3E2D%3C/text%3E%3C/svg%3E" />
+    <title>2D Sprite Studio</title>
+    <link rel="stylesheet" href="/styles.css?v=20260622-v3" />
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  </head>
+  <body data-page="home">
+    <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">2D</span>
+        <div>
+          <strong>Sprite Studio</strong>
+          <small>AI 游戏素材工作台</small>
+        </div>
+      </div>
+
+      <nav class="tool-switcher" aria-label="工具导航">
+        <button type="button" class="tool-switcher-button" id="toolSwitcherButton" aria-haspopup="menu" aria-expanded="false">
+          <i data-lucide="layout-grid"></i>
+          <span class="tool-switcher-label" id="toolSwitcherLabel">所有工具</span>
+          <i data-lucide="chevron-down" class="tool-switcher-caret"></i>
+        </button>
+        <div class="tool-switcher-menu" id="toolSwitcherMenu" role="menu" hidden>
+          <a class="tool-switcher-item" role="menuitem" data-tool="home" href="/">
+            <i data-lucide="home"></i>
+            <span><b>首页</b><small>工具导航与简介</small></span>
+          </a>
+          <div class="tool-switcher-divider" role="separator"></div>
+          <a class="tool-switcher-item" role="menuitem" data-tool="character" href="/tools/character">
+            <i data-lucide="image"></i>
+            <span><b>AI 生图</b><small>根据描述或参考图生成 2D 游戏素材。</small></span>
+          </a>
+          <a class="tool-switcher-item" role="menuitem" data-tool="cutout" href="/tools/cutout">
+            <i data-lucide="scissors"></i>
+            <span><b>图片抠图</b><small>单张或多张图片透明背景处理。</small></span>
+          </a>
+          <a class="tool-switcher-item" role="menuitem" data-tool="motion" href="/tools/motion">
+            <i data-lucide="video"></i>
+            <span><b>动作视频</b><small>用参考图和动作描述生成新视频。</small></span>
+          </a>
+          <a class="tool-switcher-item" role="menuitem" data-tool="frames" href="/tools/frames">
+            <i data-lucide="film"></i>
+            <span><b>视频抽帧</b><small>上传最终视频，手动或自动导出序列帧。</small></span>
+          </a>
+          <a class="tool-switcher-item" role="menuitem" data-tool="uiBatch" href="/tools/uiBatch">
+            <i data-lucide="layout-grid"></i>
+            <span><b>批量 UI 素材</b><small>上传提示词表格，按行生成图标、按钮和面板。</small></span>
+          </a>
+        </div>
+      </nav>
+
+      <div class="topbar-status">
+        <span class="status-dot" id="statusDot" title="检查配置中..."></span>
+        <strong id="configStatus">检查配置中...</strong>
+      </div>
+    </header>
+
+    <section class="hero-panel" aria-label="工作台概览">
+      <div class="hero-copy">
+        <h1>2D 游戏素材工坊</h1>
+        <p>从描述到可导出资产,一站式生成游戏角色、场景、UI 素材和动画序列帧。</p>
+        <div class="hero-meta" aria-label="隐私与特性">
+          <span class="hero-badge"><i data-lucide="shield-check"></i>本地运行 · 数据不出本机</span>
+          <span class="hero-badge"><i data-lucide="key-round"></i>API Key 仅存在本机</span>
+          <span class="hero-badge"><i data-lucide="layers"></i>批量导出透明 PNG</span>
+        </div>
+      </div>
+
+      <nav class="tool-grid" aria-label="工具列表">
+        <a class="tool-card" href="/tools/character">
+          <span class="tool-card-icon" style="background:#eef2ff;color:#4f46e5;"><i data-lucide="image"></i></span>
+          <b>AI 生图</b>
+          <small>根据描述或参考图生成 2D 游戏素材。</small>
+          <span class="tool-card-cta">进入工具 <i data-lucide="arrow-right"></i></span>
+        </a>
+        <a class="tool-card" href="/tools/cutout">
+          <span class="tool-card-icon" style="background:#ecfdf5;color:#16a34a;"><i data-lucide="scissors"></i></span>
+          <b>图片抠图</b>
+          <small>单张或多张图片透明背景处理。</small>
+          <span class="tool-card-cta">进入工具 <i data-lucide="arrow-right"></i></span>
+        </a>
+        <a class="tool-card" href="/tools/motion">
+          <span class="tool-card-icon" style="background:#fef3c7;color:#d97706;"><i data-lucide="video"></i></span>
+          <b>动作视频</b>
+          <small>用参考图和动作描述生成新视频。</small>
+          <span class="tool-card-cta">进入工具 <i data-lucide="arrow-right"></i></span>
+        </a>
+        <a class="tool-card" href="/tools/frames">
+          <span class="tool-card-icon" style="background:#fce7f3;color:#db2777;"><i data-lucide="film"></i></span>
+          <b>视频抽帧</b>
+          <small>上传最终视频，手动或自动导出序列帧。</small>
+          <span class="tool-card-cta">进入工具 <i data-lucide="arrow-right"></i></span>
+        </a>
+        <a class="tool-card" href="/tools/uiBatch">
+          <span class="tool-card-icon" style="background:#dbeafe;color:#2563eb;"><i data-lucide="layout-grid"></i></span>
+          <b>批量 UI 素材</b>
+          <small>上传提示词表格，按行生成图标、按钮和面板。</small>
+          <span class="tool-card-cta">进入工具 <i data-lucide="arrow-right"></i></span>
+        </a>
+      </nav>
+    </section>
+
+    <form id="workflowForm" class="studio-shell">
+      <input type="hidden" name="characterName" id="characterNameInput" />
+      <input type="hidden" name="actionName" id="actionNameInput" />
+
+      <aside class="workflow-sidebar" aria-label="工作流">
+        <div class="sidebar-head">
+          <h1>工作模式</h1>
+          <p>选择一种工作模式，右侧会显示对应的参数和控制项。</p>
+        </div>
+
+        <div class="mode-stack" role="group" aria-label="tool mode">
+          <label class="mode-card">
+            <input type="radio" name="toolMode" value="character" checked />
+            <span>
+              <i class="mode-card-icon" data-lucide="image"></i>
+              <b>AI 生图</b>
+              <small>根据描述或参考图生成 2D 游戏素材。</small>
+            </span>
+          </label>
+          <label class="mode-card">
+            <input type="radio" name="toolMode" value="cutout" />
+            <span>
+              <i class="mode-card-icon" data-lucide="scissors"></i>
+              <b>图片抠图</b>
+              <small>上传单张图片，直接导出透明 PNG。</small>
+            </span>
+          </label>
+          <label class="mode-card">
+            <input type="radio" name="toolMode" value="motion" />
+            <span>
+              <i class="mode-card-icon" data-lucide="video"></i>
+              <b>动作视频</b>
+              <small>用参考图和动作描述生成新视频。</small>
+            </span>
+          </label>
+          <label class="mode-card">
+            <input type="radio" name="toolMode" value="frames" />
+            <span>
+              <i class="mode-card-icon" data-lucide="film"></i>
+              <b>视频抽帧</b>
+              <small>上传最终视频，手动或自动导出序列帧。</small>
+            </span>
+          </label>
+          <label class="mode-card">
+            <input type="radio" name="toolMode" value="uiBatch" />
+            <span>
+              <i class="mode-card-icon" data-lucide="layout-grid"></i>
+              <b>批量 UI 素材</b>
+              <small>上传提示词表格，按行生成图标、按钮和面板。</small>
+            </span>
+          </label>
+        </div>
+      </aside>
+
+      <main class="canvas-panel">
+        <section class="asset-board">
+          <div class="canvas-head">
+            <div>
+              <h2 id="canvasTitle">画布</h2>
+            </div>
+            <strong id="progressText">0%</strong>
+          </div>
+
+          <div class="status-strip">
+            <div class="status-info">
+              <span>任务状态</span>
+              <strong id="stepTitle">等待开始</strong>
+              <em id="taskMeta" class="task-meta" hidden></em>
+            </div>
+            <div class="bar"><span id="barFill"></span></div>
+            <div class="status-actions">
+              <span id="taskTimer" class="task-timer" hidden>00:00</span>
+              <button id="cancelTaskButton" type="button" class="ghost-button" hidden>
+                <i data-lucide="x-circle"></i>取消
+              </button>
+            </div>
+          </div>
+
+          <p class="error" id="errorBox"></p>
+          <div id="jobLog" class="job-log" hidden></div>
+
+          <div id="previewArea" class="preview empty">
+            <div class="empty-asset">
+              <svg class="empty-illustration" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <rect x="14" y="20" width="92" height="70" rx="6" stroke="currentColor" stroke-width="1.5" opacity="0.5"/>
+                <circle cx="36" cy="40" r="5" stroke="currentColor" stroke-width="1.5" opacity="0.5"/>
+                <path d="M14 80 L46 56 L70 74 L92 50 L106 64 L106 90 L14 90 Z" stroke="currentColor" stroke-width="1.5" opacity="0.5" stroke-linejoin="round"/>
+                <g class="wand">
+                  <path d="M70 30 L80 20 L88 28 L78 38 Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+                  <line x1="80" y1="20" x2="74" y2="14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                  <line x1="86" y1="14" x2="90" y2="10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                  <line x1="92" y1="22" x2="96" y2="18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                  <circle cx="84" cy="44" r="1.5" fill="currentColor"/>
+                  <circle cx="92" cy="36" r="1" fill="currentColor"/>
+                  <circle cx="76" cy="48" r="1" fill="currentColor"/>
+                </g>
+              </svg>
+              <strong>开始你的第一个素材</strong>
+              <p>上传参考图、填写描述，或从下方快速开始</p>
+              <div class="empty-templates">
+                <button class="empty-template" type="button" data-template="rpg">
+                  <i data-lucide="swords"></i>
+                  <span>森林 RPG 角色</span>
+                  <small>生图 · RPG 角色预设</small>
+                </button>
+                <button class="empty-template" type="button" data-template="scene">
+                  <i data-lucide="mountain"></i>
+                  <span>横版场景背景</span>
+                  <small>生图 · 场景背景预设</small>
+                </button>
+                <button class="empty-template" type="button" data-template="cutout">
+                  <i data-lucide="scissors"></i>
+                  <span>批量抠图素材</span>
+                  <small>本地抠图 · 离线运行</small>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div id="links" class="links"></div>
+        </section>
+
+        <section class="history-gallery" aria-label="最近生成">
+          <div class="mini-head">
+            <strong>最近生成</strong>
+            <span>点击缩略图可在上方画布查看大图</span>
+          </div>
+          <div id="historyGallery" class="gallery-grid"></div>
+        </section>
+
+        <section class="frame-module frame-workspace" data-mode-only="motion,frames">
+          <div class="panel-head">
+            <div>
+              <h2>分帧工作区</h2>
+            </div>
+            <span class="panel-tag">手动 / 自动</span>
+          </div>
+
+          <div id="videoEmptyState" class="empty-state">
+            <strong>还没有可处理的视频</strong>
+            <p>动作视频生成完成后，或在"视频抽帧"模式上传最终视频后，这里会出现播放器、时间轴和抽帧工具。</p>
+          </div>
+
+          <section id="manualPanel" class="frame-panel" data-workflow-panel="manual" hidden>
+            <div class="mini-head">
+              <strong>手动选帧</strong>
+              <span>拖动播放器时间轴、下方缩略时间线，或使用精细滑杆定位到想要的帧。</span>
+            </div>
+            <video id="manualVideo" controls></video>
+            <div id="filmstrip" class="filmstrip"></div>
+            <div class="scrub-controls">
+              <button type="button" id="prevFrameButton">上一帧</button>
+              <label>
+                <span>当前时间 <b id="currentTimeLabel">0.000s</b></span>
+                <input id="timeScrubber" type="range" min="0" max="1" step="0.001" value="0" />
+              </label>
+              <button type="button" id="nextFrameButton">下一帧</button>
+            </div>
+            <div class="manual-actions">
+              <button type="button" id="captureFrameButton" class="primary-action">截取当前帧</button>
+              <button type="button" id="manualExportButton">导出手动选帧</button>
+              <button type="button" id="clearManualButton">清空选帧</button>
+            </div>
+            <div id="manualFrames" class="manual-frames"></div>
+          </section>
+
+          <section id="autoPanel" class="frame-panel" data-workflow-panel="auto" hidden>
+            <div class="mini-head">
+              <strong>自动抽帧</strong>
+              <span>适合快速得到一组均匀帧。抽帧数量、时间范围和抠图方式在右侧参数面板设置。</span>
+            </div>
+            <button type="button" id="autoExportButton" class="primary-action">自动抽帧并导出</button>
+          </section>
+
+          <section id="sequencePlayer" class="sequence-player" data-mode-only="motion,frames" hidden>
+            <div class="mini-head">
+              <strong>序列帧动画预览</strong>
+              <span id="sequenceHint">分帧完成后这里会出现播放器，可调整帧间距。</span>
+            </div>
+            <div class="sequence-stage">
+              <div class="sequence-canvas-wrap checker">
+                <img id="sequenceFrame" alt="序列帧预览" />
+                <div class="sequence-empty">
+                  <strong>还没有序列帧</strong>
+                  <p>截取或导出帧后，这里会显示动画预览。</p>
+                </div>
+              </div>
+              <div class="sequence-toolbar">
+                <button type="button" class="ghost-button" id="sequenceFirst" title="第一帧">
+                  <i data-lucide="chevrons-left"></i>
+                </button>
+                <button type="button" class="ghost-button" id="sequencePrev" title="上一帧">
+                  <i data-lucide="chevron-left"></i>
+                </button>
+                <button type="button" class="primary-action sequence-play" id="sequencePlay" title="播放/暂停">
+                  <i data-lucide="play" id="sequencePlayIcon"></i>
+                </button>
+                <button type="button" class="ghost-button" id="sequenceNext" title="下一帧">
+                  <i data-lucide="chevron-right"></i>
+                </button>
+                <button type="button" class="ghost-button" id="sequenceLast" title="最后一帧">
+                  <i data-lucide="chevrons-right"></i>
+                </button>
+                <span class="sequence-counter">
+                  <strong id="sequenceIndex">0</strong> / <span id="sequenceTotal">0</span>
+                </span>
+              </div>
+              <div class="sequence-timeline-wrap">
+                <div class="sequence-timeline-label">
+                  <span><strong>时间轴</strong> · 拖动每帧调整间距</span>
+                  <button type="button" class="ghost-button sequence-reset-btn" id="sequenceResetBtn" title="重置为等间距">
+                    <i data-lucide="rotate-ccw"></i> 等间距
+                  </button>
+                </div>
+                <div class="sequence-timeline" id="sequenceTimeline" role="slider" aria-label="逐帧时间轴" tabindex="0">
+                  <div class="sequence-timeline-track" id="sequenceTimelineTrack"></div>
+                  <div class="sequence-timeline-handles" id="sequenceTimelineHandles"></div>
+                  <div class="sequence-timeline-cursor" id="sequenceTimelineCursor"></div>
+                </div>
+                <div class="sequence-timeline-marks" id="sequenceTimelineMarks"></div>
+              </div>
+              <div class="sequence-controls">
+                <label class="sequence-control">
+                  <span>总时长 <strong id="sequenceDurationValue">1.0</strong> s</span>
+                  <input type="range" id="sequenceDuration" min="0.4" max="10" step="0.1" value="1" />
+                </label>
+                <label class="sequence-control toggle">
+                  <input type="checkbox" id="sequenceLoop" checked />
+                  <span>循环播放</span>
+                </label>
+                <label class="sequence-control toggle">
+                  <input type="checkbox" id="sequencePingpong" />
+                  <span>来回播放</span>
+                </label>
+              </div>
+              <div class="sequence-thumbs" id="sequenceThumbs"></div>
+            </div>
+          </section>
+        </section>
+      </main>
+
+      <aside class="inspector-panel">
+        <div class="inspector-head">
+          <h2>参数面板</h2>
+        </div>
+
+        <section class="current-result" id="currentResult" hidden>
+          <div class="current-result-head">
+            <i data-lucide="image"></i>
+            <strong>当前结果</strong>
+            <button type="button" class="ghost-button" id="currentResultClose" aria-label="关闭">
+              <i data-lucide="x"></i>
+            </button>
+          </div>
+          <div class="current-result-body" id="currentResultBody"></div>
+        </section>
+
+        <section class="inspector-section source-module" data-mode-only="frames">
+          <div class="section-title">
+            <strong>最终视频</strong>
+            <span>只抽帧，不调用 AI</span>
+          </div>
+          <label class="drop-card primary-drop">
+            <span>上传最终动作视频</span>
+            <input type="file" name="finalVideo" id="finalVideo" accept="video/mp4,video/webm,video/quicktime" />
+            <small>上传成功后，中间区域将显示播放器和抽帧工具。</small>
+          </label>
+          <p class="tip">如果这个视频是动作参考，想让 AI 学习其中的动作，请切换到"动作视频"模式，将公网 URL 填入动作参考。</p>
+        </section>
+
+        <section class="inspector-section ui-batch-module" data-mode-only="uiBatch">
+          <div class="section-title">
+            <strong>批量 UI 素材</strong>
+            <span>Excel / CSV 表格</span>
+          </div>
+          <label>
+            <span>批次名称</span>
+            <input name="uiBatchName" placeholder="例如：fantasy_ui_pack_01" />
+          </label>
+          <label>
+            <span>全局风格</span>
+            <textarea name="uiGlobalStyle" rows="4" placeholder="例：暗黑幻想 RPG UI，暗金边框，蓝紫魔法光效，透明背景，高清 2D 游戏图标。"></textarea>
+          </label>
+          <label>
+            <span>图片模型</span>
+            <select name="uiImageModel">
+              <option value="doubao-seedream-5-0-260128" selected>Doubao-Seedream-5.0</option>
+              <option value="doubao-seedream-5-0-lite-260128">Doubao-Seedream-5.0-lite</option>
+              <option value="doubao-seedream-4-5-251128">Doubao-Seedream-4.5</option>
+              <option value="doubao-seedream-4-0-250828">Doubao-Seedream-4.0</option>
+              <option value="doubao-seedream-3-0-t2i-250415">Doubao-Seedream-3.0（旧模型，需确认已开通）</option>
+              <option value="openai:gpt-image-2">OpenAI GPT Image 2（快速出图）</option>
+              <option value="openai:gpt-image-1">OpenAI GPT Image 1</option>
+              <option value="minimax:image-01">MiniMax Image-01</option>
+              <option value="custom">自定义模型 ID</option>
+            </select>
+            <small>每行素材均使用此模型进行生图。</small>
+          </label>
+          <label id="customUiImageModelField" hidden>
+            <span>自定义图片模型 ID</span>
+            <input name="uiCustomImageModel" placeholder="例如：doubao-seedream-5-0-260128" />
+            <small>填写已开通的 Seedream 图片模型 ID。</small>
+          </label>
+
+          <label>
+            <span>负面提示词</span>
+            <textarea name="negativePrompt" rows="2" placeholder="不想出现的元素，用逗号分隔。例如：模糊，畸形，低画质，真实文字，复杂背景，写实照片"></textarea>
+            <small>应用于批次的每一行，描述不希望 AI 生成的视觉元素。</small>
+          </label>
+
+          <label class="drop-card primary-drop">
+            <span>上传提示词表格</span>
+            <input type="file" name="uiBatchFile" id="uiBatchFile" accept=".xlsx,.csv,.tsv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,text/tab-separated-values" />
+            <small>支持 .xlsx / CSV / TSV 格式，建议先用少量行测试风格。</small>
+          </label>
+          <label>
+            <span>或直接粘贴 CSV</span>
+            <textarea name="uiBatchText" id="uiBatchText" rows="7" placeholder="asset_name,type,prompt,size,count,transparent&#10;start_button,button,开始游戏按钮，金属边框，蓝色宝石高光,1024x1024,1,true&#10;coin_icon,icon,金币图标，圆形，高亮，适合手游 UI,1024x1024,1,true"></textarea>
+          </label>
+          <label class="toggle-row">
+            <input type="checkbox" name="uiCutoutAfterGenerate" value="true" checked />
+            <span>
+              <strong>生成后自动批量抠图</strong>
+              <small>开启后输出透明 PNG/JPG，原始生成图保留在本地。</small>
+            </span>
+          </label>
+          <button type="button" id="uiBatchButton" class="primary-action full-width">开始批量生成 UI 素材</button>
+          <p class="tip">提示：真实 API 模式下每一行都会产生一次生图调用。抠图方式使用底部"导出设置"，建议先用 2-3 行小表测试风格。</p>
+        </section>
+
+        <section class="inspector-section cutout-module" data-mode-only="cutout">
+          <div class="section-title">
+            <strong>图片抠图</strong>
+            <span>单张或多张图片透明背景处理</span>
+          </div>
+          <div class="drop-card primary-drop" id="cutoutDropCard" role="button" tabindex="0">
+            <span>上传要抠图的图片</span>
+            <small>支持 PNG / JPEG / WebP，可一次选择多张；每张都会单独抠图并导出。</small>
+            <input type="file" name="cutoutImages" id="cutoutImages" accept="image/png,image/jpeg,image/webp" multiple hidden />
+          </div>
+          <div class="ref-uploader">
+            <div class="ref-uploader-head">
+              <span>已选图片 <em id="cutoutImageCount">0</em></span>
+              <small>点击下方按钮开始处理，处理顺序按文件选择顺序。</small>
+            </div>
+            <div class="status-strip cutout-progress" id="cutoutProgress" hidden>
+              <div class="status-info">
+                <span id="cutoutStepTitle">正在抠图</span>
+                <strong id="cutoutProgressText">0%</strong>
+              </div>
+              <div class="bar"><span id="cutoutBarFill"></span></div>
+            </div>
+            <div id="cutoutImageList" class="cutout-image-list"></div>
+          </div>
+          <button type="button" id="cutoutButton" class="primary-action full-width">抠图并导出</button>
+          <button type="button" class="full-width" data-switch-mode="motion">用抠图结果生成动作视频</button>
+        </section>
+
+        <section class="inspector-section ai-module" data-mode-only="character,motion">
+          <div class="section-title">
+            <strong>参考输入</strong>
+            <span data-motion-only>用于生成动作视频</span>
+            <span data-mode-only="character">用于生成图片素材</span>
+          </div>
+
+          <div id="characterPresets" class="preset-grid" data-mode-only="character" aria-label="预设提示词"></div>
+
+          <details class="param-group" data-default-open="character">
+            <summary>
+              <i data-lucide="image"></i>
+              <span>画面</span>
+              <small>参考图、描述与尺寸</small>
+            </summary>
+            <div class="param-group-body">
+              <div class="ref-uploader">
+                <div class="ref-uploader-head">
+                  <span>参考图 <em id="refCount">0/4</em></span>
+                  <small>最多 4 张;为每张标出作用,模型会按标签理解。</small>
+                </div>
+                <div id="referenceSlots" class="ref-slots"></div>
+                <button type="button" id="addReferenceButton" class="ghost-button" hidden>
+                  <i data-lucide="plus"></i><span>添加参考图</span>
+                </button>
+                <input type="file" id="referenceFileInput" accept="image/png,image/jpeg,image/webp" multiple hidden />
+              </div>
+              <label>
+                <span>主体描述</span>
+                <textarea name="characterPrompt" rows="5" placeholder="描述要生成的画面内容。例：2D 游戏背景，森林战斗场景，青苔石台，柔和雾气，俯瞰视角，适合序列帧。或：俯视角 RPG 少年剑士，深色斗篷，轮廓清晰。"></textarea>
+              </label>
+              <div class="settings-grid" data-mode-only="character">
+                <label>
+                  <span>生成尺寸</span>
+                  <select name="imageSize">
+                    <option value="1024x1024" selected>1024×1024（方形）</option>
+                    <option value="1024x512">1024×512（横版）</option>
+                    <option value="512x1024">512×1024（竖版）</option>
+                    <option value="768x768">768×768（方形）</option>
+                    <option value="512x512">512×512（小方形）</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+          </details>
+
+          <details class="param-group" open>
+            <summary>
+              <i data-lucide="cpu"></i>
+              <span>模型</span>
+              <small>图片 / 视频模型选择</small>
+            </summary>
+            <div class="param-group-body">
+              <label data-mode-only="character,motion">
+                <span>图片模型</span>
+                <select name="characterImageModel">
+                  <option value="doubao-seedream-5-0-260128" selected>Doubao-Seedream-5.0</option>
+                  <option value="doubao-seedream-5-0-lite-260128">Doubao-Seedream-5.0-lite</option>
+                  <option value="doubao-seedream-4-5-251128">Doubao-Seedream-4.5</option>
+                  <option value="doubao-seedream-4-0-250828">Doubao-Seedream-4.0</option>
+                  <option value="doubao-seedream-3-0-t2i-250415">Doubao-Seedream-3.0（旧模型，需确认已开通）</option>
+                  <option value="openai:gpt-image-2">OpenAI GPT Image 2（快速出图）</option>
+                  <option value="openai:gpt-image-1">OpenAI GPT Image 1</option>
+                  <option value="minimax:image-01">MiniMax Image-01</option>
+                  <option value="custom">自定义模型 ID</option>
+                </select>
+                <small>用于生成图片素材。如遇模型未开通，请切换至已开通的模型。</small>
+              </label>
+              <label id="customCharacterImageModelField" hidden>
+                <span>自定义图片模型 ID</span>
+                <input name="customCharacterImageModel" placeholder="例如：doubao-seedream-5-0-260128" />
+                <small>填写已开通的 Seedream 图片模型 ID。</small>
+              </label>
+            </div>
+          </details>
+
+          <details class="param-group" open>
+            <summary>
+              <i data-lucide="palette"></i>
+              <span>风格</span>
+              <small>负面提示词</small>
+            </summary>
+            <div class="param-group-body">
+              <label data-mode-only="character,motion">
+                <span>负面提示词</span>
+                <textarea name="negativePrompt" rows="2" placeholder="不想出现的元素，用逗号分隔。例如：模糊，畸形手指，多余肢体，丑陋，低画质，黑白，写实照片"></textarea>
+                <small>Seedream 原生作为 negative_prompt 发送，其他模型拼入正面提示词的 avoid 从句。</small>
+              </label>
+            </div>
+          </details>
+
+          <div class="tool-actions" data-mode-only="character">
+            <button type="button" id="characterGenerateButton" class="primary-action">生成图片</button>
+            <button type="button" id="goMotionFromCharacterButton">用这张图生成动作视频</button>
+          </div>
+
+          <div data-motion-only class="motion-extra">
+            <div class="section-title compact">
+              <strong>动作输入</strong>
+              <span>描述动作，或提供公网参考视频 URL</span>
+            </div>
+
+            <label>
+              <span>动作描述</span>
+              <textarea name="actionPrompt" rows="6" placeholder="例：俯视角 RPG 角色向右跑步，动作可循环，脚步清晰，身体重心稳定，不要镜头移动，主体完整入镜。"></textarea>
+            </label>
+
+            <details class="prompt-preview-card" open>
+              <summary>
+                <strong>最终提示词预览</strong>
+                <span id="promptPreviewMeta">会自动拼入视角、图片一致性和背景约束</span>
+              </summary>
+              <pre id="promptPreview">填写动作描述或切换视角后，这里会显示实际提交给模型的完整提示词。</pre>
+            </details>
+
+            <section class="preset-block">
+              <div class="mini-head">
+                <strong>典型动作提示词</strong>
+                <span>点击后填入动作描述</span>
+              </div>
+              <div class="preset-grid" id="actionPresets"></div>
+            </section>
+
+            <label>
+              <span>动作参考视频 URL</span>
+              <input name="actionReferenceVideoUrl" placeholder="https://example.com/reference-action.mp4" />
+              <small>必须是公网可访问的视频 URL，建议 mp4 格式。</small>
+            </label>
+
+            <div class="settings-grid">
+              <label>
+                <span>视角/游戏类型</span>
+                <select name="cameraView" id="cameraView">
+                  <option value="side" selected>横版侧面视角</option>
+                  <option value="front">正面视角</option>
+                  <option value="topdown">俯视角 RPG</option>
+                  <option value="isometric">等距 3/4 视角</option>
+                </select>
+              </label>
+              <label>
+                <span>视频秒数</span>
+                <select name="videoDuration">
+                  <option value="4">4 秒</option>
+                  <option value="5" selected>5 秒</option>
+                  <option value="6">6 秒</option>
+                  <option value="8">8 秒</option>
+                  <option value="10">10 秒</option>
+                  <option value="15">15 秒</option>
+                </select>
+              </label>
+            </div>
+
+            <label data-motion-only>
+              <span>负面提示词</span>
+              <textarea name="negativePrompt" rows="2" placeholder="不想出现的元素，用逗号分隔。例如：模糊，变形，演员出镜，真实人物，电影运镜，黑白，慢动作"></textarea>
+              <small>描述不希望 AI 生成的视觉元素，会拼入最终提示词中。</small>
+            </label>
+
+            <label>
+              <span>视频模型</span>
+              <select name="videoModel">
+                <option value="doubao-seedance-1-5-pro-251215" selected>Doubao-Seedance-1.5-pro（首帧图生视频）</option>
+                <option value="doubao-seedance-1-0-pro-250528">Doubao-Seedance-1.0-pro（首帧图生视频）</option>
+                <option value="doubao-seedance-1-0-pro-fast-251015">Doubao-Seedance-1.0-pro-fast（首帧图生视频）</option>
+                <option value="doubao-seedance-2-0-260128">Doubao-Seedance-2.0（参考图模式）</option>
+                <option value="doubao-seedance-2-0-fast-260128">Doubao-Seedance-2.0-fast（参考图模式，需开通）</option>
+                <option value="minimax-video:MiniMax-Hailuo-2.3-Fast">MiniMax Hailuo 2.3 Fast（图生视频）</option>
+                <option value="minimax-video:MiniMax-Hailuo-2.3">MiniMax Hailuo 2.3（图生视频）</option>
+                <option value="minimax-video:MiniMax-Hailuo-02">MiniMax Hailuo 02（图生视频）</option>
+                <option value="custom">自定义模型 ID</option>
+              </select>
+              <small>如果控制台给了具体模型 ID，可以选择下面"自定义模型 ID"。</small>
+            </label>
+
+            <label id="customModelField" hidden>
+              <span>自定义模型 ID</span>
+              <input name="customVideoModel" placeholder="例如：doubao-seedance-1-5-pro-251215 或 minimax-video:MiniMax-Hailuo-2.3-Fast" />
+              <small>输入模型 ID，支持豆包 Seedance 和 MiniMax 视频模型。</small>
+            </label>
+
+            <div class="settings-grid">
+              <label>
+                <span>视频比例</span>
+                <select name="videoRatio">
+                  <option value="16:9" selected>16:9</option>
+                  <option value="9:16">9:16</option>
+                  <option value="1:1">1:1</option>
+                  <option value="4:3">4:3</option>
+                  <option value="3:4">3:4</option>
+                </select>
+              </label>
+              <label>
+                <span>生成分辨率</span>
+                <select name="videoResolution" id="videoResolution">
+                  <option value="480p">480p 预览测试</option>
+                  <option value="720p" selected>720p 推荐</option>
+                  <option value="1080p">1080p 最终质量</option>
+                </select>
+              </label>
+            </div>
+
+            <label>
+              <span>官方输出帧率</span>
+              <select name="videoFps" id="videoFps" disabled>
+                <option value="">固定约 24fps</option>
+              </select>
+              <small>当前 API 帧率约为 24fps，成本优化建议优先调整模型和分辨率。</small>
+            </label>
+
+            <section class="cost-panel">
+              <div class="mini-head">
+                <strong>成本提示</strong>
+                <span id="costHint">建议先用 720p + 4 秒测试效果。</span>
+              </div>
+              <div class="cost-card" id="costCard">
+                <strong>当前成本档位</strong>
+                <p>720p / 模型默认帧率 / 短视频优先</p>
+              </div>
+              <p class="cost-note" id="costNote">主要成本来自模型选择、分辨率和视频秒数。</p>
+            </section>
+
+            <button type="submit" id="aiGenerateButton" class="primary-action full-width">AI 生成动作视频</button>
+          </div>
+        </section>
+
+        <section class="inspector-section frame-settings" data-mode-only="cutout,motion,frames,uiBatch">
+          <div class="section-title">
+            <strong><span data-mode-only="motion,frames">分帧设置</span><span data-mode-only="cutout">抠图设置</span><span data-mode-only="uiBatch">批量设置</span></strong>
+            <span data-mode-only="motion,frames">手动/自动抽帧和时间范围</span>
+            <span data-mode-only="cutout,uiBatch">输出格式、抠图方式与质量</span>
+          </div>
+
+          <div data-mode-only="motion,frames">
+            <div class="segmented workflow-tabs" role="group" aria-label="frame workflow">
+              <label>
+                <input type="radio" name="frameWorkflow" value="manual" checked />
+                <span>手动选帧</span>
+              </label>
+              <label>
+                <input type="radio" name="frameWorkflow" value="auto" />
+                <span>自动抽帧</span>
+              </label>
+            </div>
+
+            <div class="segmented compact-tabs" role="group" aria-label="auto extract mode">
+              <label>
+                <input type="radio" name="extractMode" value="count" checked />
+                <span>按总数</span>
+              </label>
+              <label>
+                <input type="radio" name="extractMode" value="fps" />
+                <span>按帧率</span>
+              </label>
+            </div>
+
+            <div class="settings-grid">
+              <label data-mode-field="count">
+                <span>导出总帧数</span>
+                <input name="frameCount" type="number" min="1" max="240" value="12" />
+              </label>
+              <label data-mode-field="fps">
+                <span>采样帧率 FPS</span>
+                <input name="sampleFps" type="number" min="0.1" max="60" step="0.1" value="1" />
+              </label>
+              <label>
+                <span>开始时间（秒，可空）</span>
+                <input name="startSec" type="number" min="0" step="0.01" placeholder="0" />
+              </label>
+              <label>
+                <span>结束时间（秒，可空）</span>
+                <input name="endSec" type="number" min="0" step="0.01" placeholder="自动" />
+              </label>
+            </div>
+          </div>
+
+          <div class="export-settings">
+            <div class="mini-head">
+              <strong>导出设置</strong>
+              <span>所有模式共用</span>
+            </div>
+            <label>
+              <span>输出格式</span>
+              <select name="outputFormat" id="outputFormat">
+                <option value="png" selected>PNG（透明，推荐）</option>
+                <option value="jpg">JPG（文件小，不透明）</option>
+              </select>
+            </label>
+            <label>
+              <span>抠图方式</span>
+              <select name="backgroundMode" id="backgroundMode">
+                <option value="auto">自动评估抠图（推荐批量 UI）</option>
+                <option value="ui">UI 安全抠图（保留按钮/面板内部）</option>
+                <option value="birefnet" selected>BiRefNet 精细主体抠图</option>
+                <option value="color">快速绿幕/白底抠图</option>
+                <option value="none">不抠图，仅统一尺寸</option>
+              </select>
+              <small>批量 UI 默认使用自动评估抠图；图片素材和序列帧建议使用 BiRefNet。</small>
+            </label>
+            <label id="jpgQualityField">
+              <span>JPG 质量 <b id="qualityValue">90</b>%</span>
+              <input name="jpgQuality" id="jpgQuality" type="range" min="1" max="100" value="90" />
+            </label>
+          </div>
+        </section>
+      </aside>
+    </form>
+    </div>
+
+    <script src="/app.js?v=20260622-productized"></script>
+  </body>
+</html>

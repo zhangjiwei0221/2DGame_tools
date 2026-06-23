@@ -1,0 +1,14 @@
+{
+  "name": "2dgame-ai-workflow",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node server/index.js",
+    "process:demo": "node scripts/run_demo.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
