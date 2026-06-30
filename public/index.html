@@ -55,10 +55,37 @@
         </div>
       </nav>
 
+      <!-- topbar-status 块已删除(MOCK 模式 / API 已连接 状态提示,2026-06-30 简化) -->
+      <!--
       <div class="topbar-status">
         <span class="status-dot" id="statusDot" title="检查配置中..."></span>
         <strong id="configStatus">检查配置中...</strong>
       </div>
+      -->
+      <!--
+      备案合规:个人学习网站,屏蔽账号/积分/充值相关 UI
+      后续接入付费功能时取消注释即可
+      <div class="account-widget" id="accountWidget">
+        <button type="button" class="account-login-button" id="loginOpenButton">
+          <i data-lucide="user"></i>
+          <span>登录</span>
+        </button>
+        <div class="account-menu" id="accountMenu" hidden>
+          <button type="button" class="credit-pill" id="creditLedgerButton">
+            <i data-lucide="coins"></i>
+            <span>积分 <b id="creditBalance">0</b></span>
+          </button>
+          <button type="button" class="account-name" id="accountNameButton">
+            <i data-lucide="circle-user-round"></i>
+            <span id="accountName">未登录</span>
+          </button>
+          <button type="button" class="ghost-button" id="logoutButton">
+            <i data-lucide="log-out"></i>
+            <span>退出</span>
+          </button>
+        </div>
+      </div>
+      -->
     </header>
 
     <section class="hero-panel" aria-label="工作台概览">
@@ -670,19 +697,19 @@
               <select name="videoFps" id="videoFps" disabled>
                 <option value="">固定约 24fps</option>
               </select>
-              <small>当前 API 帧率约为 24fps，成本优化建议优先调整模型和分辨率。</small>
+              <small>当前 API 帧率约为 24fps，可优先调整模型和分辨率优化生成效果。</small>
             </label>
 
             <section class="cost-panel">
               <div class="mini-head">
-                <strong>成本提示</strong>
+                <strong>规格提示</strong>
                 <span id="costHint">建议先用 720p + 4 秒测试效果。</span>
               </div>
               <div class="cost-card" id="costCard">
-                <strong>当前成本档位</strong>
+                <strong>当前规格档位</strong>
                 <p>720p / 模型默认帧率 / 短视频优先</p>
               </div>
-              <p class="cost-note" id="costNote">主要成本来自模型选择、分辨率和视频秒数。</p>
+              <p class="cost-note" id="costNote">规格由模型选择、分辨率和视频秒数决定。</p>
             </section>
 
             <button type="submit" id="aiGenerateButton" class="primary-action full-width">AI 生成动作视频</button>
@@ -756,11 +783,13 @@
               <select name="backgroundMode" id="backgroundMode">
                 <option value="auto">自动评估抠图（推荐批量 UI）</option>
                 <option value="ui">UI 安全抠图（保留按钮/面板内部）</option>
-                <option value="birefnet" selected>BiRefNet 精细主体抠图</option>
+                <option value="u2netp" selected>U2Net-p 轻量抠图（推荐，2G 服务器可用）</option>
+                <option value="u2net">U2Net 标准抠图（精度更高，需 4G+ 内存）</option>
+                <option value="birefnet">BiRefNet 精细抠图（效果最好，需 6G+ 内存）</option>
                 <option value="color">快速绿幕/白底抠图</option>
                 <option value="none">不抠图，仅统一尺寸</option>
               </select>
-              <small>批量 UI 默认使用自动评估抠图；图片素材和序列帧建议使用 BiRefNet。</small>
+              <small>默认 U2Net-p（轻量、2G 服务器可跑、Apache 2.0 商用）。BiRefNet 精度最高但需 6G+ 内存。</small>
             </label>
             <label id="jpgQualityField">
               <span>JPG 质量 <b id="qualityValue">90</b>%</span>
@@ -772,6 +801,42 @@
     </form>
     </div>
 
-    <script src="/app.js?v=20260622-productized"></script>
+    <div class="auth-modal" id="authModal" hidden>
+      <div class="auth-backdrop" data-auth-close></div>
+      <!--
+      备案合规:个人学习网站,屏蔽账号/积分/验证码登录
+      后续接入付费功能时取消注释
+      <section class="auth-card" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+        <button type="button" class="auth-close" data-auth-close aria-label="关闭">
+          <i data-lucide="x"></i>
+        </button>
+        <div class="auth-card-head">
+          <span class="auth-icon"><i data-lucide="shield-check"></i></span>
+          <div>
+            <h2 id="authTitle">手机号登录</h2>
+            <p>首次登录会自动注册，并赠送 30 体验积分。</p>
+          </div>
+        </div>
+        <form id="authForm" class="auth-form">
+          <label>
+            <span>手机号</span>
+            <input name="phone" id="authPhone" inputmode="numeric" autocomplete="tel" placeholder="请输入手机号" />
+          </label>
+          <label>
+            <span>验证码</span>
+            <div class="auth-code-row">
+              <input name="code" id="authCode" inputmode="numeric" autocomplete="one-time-code" placeholder="6 位验证码" />
+              <button type="button" id="sendCodeButton">获取验证码</button>
+            </div>
+          </label>
+          <p class="auth-message" id="authMessage"></p>
+          <button type="submit" class="primary-action full-width">登录 / 注册</button>
+        </form>
+        <p class="auth-note">为控制体验成本，同一网络每天最多 3 个新账号领取新手积分。</p>
+      </section>
+      -->
+    </div>
+
+    <script src="/app.js?v=20260630-topbar"></script>
   </body>
 </html>

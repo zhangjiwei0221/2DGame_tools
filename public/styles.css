@@ -253,6 +253,8 @@ p {
   font-weight: 500;
 }
 
+/* topbar-status / status-dot 样式已删(2026-06-30)
+
 .topbar-status {
   display: flex;
   align-items: center;
@@ -284,6 +286,196 @@ p {
 .topbar-status strong {
   color: var(--ink);
   font-weight: 600;
+}
+*/
+
+.account-widget {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.account-login-button,
+.credit-pill,
+.account-name {
+  min-height: 34px;
+  border-radius: var(--radius-pill);
+  padding: 0 12px;
+}
+
+.account-login-button {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-tint);
+  font-weight: 700;
+}
+
+.account-menu {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.credit-pill {
+  border-color: var(--warning-border);
+  background: var(--warning-soft);
+  color: var(--warning);
+  font-weight: 700;
+}
+
+.credit-pill b {
+  font-variant-numeric: tabular-nums;
+}
+
+.account-name {
+  max-width: 180px;
+  color: var(--ink);
+}
+
+.account-name span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.account-widget svg,
+.account-widget i {
+  width: 15px;
+  height: 15px;
+  stroke: currentColor;
+}
+
+.auth-modal[hidden] {
+  display: none;
+}
+
+.auth-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+
+.auth-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.36);
+  backdrop-filter: blur(3px);
+}
+
+.auth-card {
+  position: relative;
+  z-index: 1;
+  width: min(420px, 100%);
+  padding: 22px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+}
+
+.auth-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  min-width: 30px;
+  min-height: 30px;
+  padding: 0;
+  border-radius: var(--radius-pill);
+}
+
+.auth-card-head {
+  display: flex;
+  gap: 12px;
+  padding-right: 36px;
+}
+
+.auth-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius);
+  background: var(--accent-tint);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.auth-icon svg,
+.auth-icon i {
+  width: 20px;
+  height: 20px;
+}
+
+.auth-card h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.auth-card p {
+  margin: 6px 0 0;
+  color: var(--ink-2);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.auth-form {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.auth-form label {
+  display: grid;
+  gap: 6px;
+}
+
+.auth-form label > span {
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.auth-form input {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0 12px;
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.auth-form input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--shadow-ring);
+}
+
+.auth-code-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.auth-message {
+  min-height: 18px;
+  margin: 0;
+  color: var(--danger);
+  font-size: 12px;
+}
+
+.auth-message.is-ok {
+  color: var(--success);
+}
+
+.auth-note {
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
 }
 
 /* ===== Hero Banner ===== */

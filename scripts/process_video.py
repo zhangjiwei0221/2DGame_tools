@@ -23,6 +23,60 @@ class NoBackgroundRemover:
         return image.convert("RGBA")
 
 
+class U2NetPBackgroundRemover:
+    """轻量抠图模型(rembg + u2netp/u2net)。
+
+    - 权重大小 4.7 MB(u2netp)/176 MB(u2net),Apache 2.0 可商用
+    - CPU 推理 1-3 秒/张
+    - 内存峰值 ~750 MB(u2netp)/~1.2 GB(u2net)
+    - 适合 2 GB 内存服务器(u2netp)
+    - 对游戏素材(角色立绘、道具、图标)精度足够
+    """
+
+    # rembg 支持的模型名(不是 HuggingFace 模型名)
+    REMBG_MODELS = {
+        "u2netp": "u2netp",
+        "u2net": "u2net",
+        "isnet-general-use": "isnet-general-use",
+        "isnet-anime": "isnet-anime",
+    }
+
+    def __init__(self, model_name="u2netp", device="cpu"):
+        try:
+            from rembg import new_session  # noqa: F401
+        except ImportError as exc:
+            raise RuntimeError(
+                "U2Net-p needs the `rembg` package. "
+                "Install with: pip install rembg[cpu]"
+            ) from exc
+
+        # model_name 可能是 HuggingFace 名(BIREFNET_MODEL 注入),过滤到 rembg 支持的几个
+        env_model = os.environ.get("U2NETP_MODEL", "u2netp")
+        chosen = env_model if env_model in self.REMBG_MODELS else "u2netp"
+        if model_name in self.REMBG_MODELS:
+            chosen = model_name
+        self.model_name = chosen
+        self._session = None
+
+    def _ensure_session(self):
+        if self._session is None:
+            from rembg import new_session
+            self._session = new_session(self.model_name)
+        return self._session
+
+    def remove(self, image):
+        import io
+        from rembg import remove
+        from PIL import Image
+
+        session = self._ensure_session()
+        buf = io.BytesIO()
+        image = image.convert("RGBA")
+        image.save(buf, format="PNG")
+        out_bytes = remove(buf.getvalue(), session=session)
+        return Image.open(io.BytesIO(out_bytes)).convert("RGBA")
+
+
 class BiRefNetBackgroundRemover:
     def __init__(self, model_name, device):
         try:
@@ -92,7 +146,10 @@ class AutoBackgroundRemover:
     def __init__(self, model_name, device):
         self.model_name = model_name
         self.device = device
-        self.birefnet = None
+        # 默认走 U2Net-p(轻量、可商用、2G 服务器能跑)
+        # BiRefNet 是"高级"模式,只在用户显式选 birefnet 时才用
+        self._u2netp = None
+        self._birefnet = None
         self.last_mode = None
 
     def remove(self, image):
@@ -101,15 +158,22 @@ class AutoBackgroundRemover:
             self.last_mode = "ui"
             return ui_result
 
+        # fallback 链路: U2Net-p -> UI
         try:
-            if self.birefnet is None:
-                self.birefnet = BiRefNetBackgroundRemover(self.model_name, self.device)
-            result = self.birefnet.remove(image)
-            self.last_mode = "birefnet"
+            if self._u2netp is None:
+                self._u2netp = U2NetPBackgroundRemover("u2netp", self.device)
+            result = self._u2netp.remove(image)
+            self.last_mode = "u2netp"
             return result
         except Exception:
             self.last_mode = "ui"
             return ui_result
+
+    def with_birefnet(self):
+        """显式走 BiRefNet 路径(高级模式,服务器需 6G+ 内存)。"""
+        if self._birefnet is None:
+            self._birefnet = BiRefNetBackgroundRemover(self.model_name, self.device)
+        return self._birefnet
 
 
 def remove_color_background(image):
@@ -220,9 +284,16 @@ def make_background_remover(mode, model_name, device):
     if mode == "none":
         return NoBackgroundRemover()
     if mode == "auto":
+        # 默认 auto 走 U2Net-p 兜底(U2Net-p 失败才用 UI)
         return AutoBackgroundRemover(model_name, device)
     if mode == "ui":
         return UiSafeBackgroundRemover()
+    if mode == "u2netp":
+        # 显式选 u2netp 模式(轻量,2G 服务器可用)
+        return U2NetPBackgroundRemover(model_name or "u2netp", device)
+    if mode == "u2net":
+        # 标准 U2Net(精度略好,内存 1-1.5G)
+        return U2NetPBackgroundRemover("u2net", device)
     if mode == "birefnet":
         return BiRefNetBackgroundRemover(model_name, device)
     return ColorBackgroundRemover()
@@ -341,7 +412,7 @@ def main():
     parser.add_argument("--output-format", choices=["png", "jpg"], default="png")
     parser.add_argument("--jpg-quality", type=int, default=90)
     parser.add_argument("--frame-size", type=int, default=256)
-    parser.add_argument("--background-mode", choices=["auto", "ui", "color", "birefnet", "none"], default="birefnet")
+    parser.add_argument("--background-mode", choices=["auto", "ui", "color", "birefnet", "u2netp", "u2net", "none"], default="birefnet")
     parser.add_argument("--birefnet-model", default=os.environ.get("BIREFNET_MODEL", "ZhengPeng7/BiRefNet"))
     parser.add_argument("--birefnet-device", default=os.environ.get("BIREFNET_DEVICE", "auto"))
     args = parser.parse_args()

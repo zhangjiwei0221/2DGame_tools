@@ -5,6 +5,7 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
+import { handleAuthRoute, initAuth } from "./auth.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..");
@@ -25,11 +26,14 @@ const port = Number(env.PORT || 5177);
 const jobs = new Map();
 
 await Promise.all([ensureDir(dataDir), ensureDir(exportDir), ensureDir(stagingDir), ensureDir(tmpDir), ensureDir(uploadDir)]);
+await initAuth({ dataDir });
 await loadStoredJobs();
 
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://${req.headers.host}`);
+    const authHandled = await handleAuthRoute(req, res, url, { readJson, json, getClientIp });
+    if (authHandled !== false) return authHandled;
     if (req.method === "GET" && url.pathname === "/api/config") {
       return json(res, {
         mock: isMock(),
@@ -174,7 +178,7 @@ const server = http.createServer(async (req, res) => {
     }
     return serveStatic(req, res, url);
   } catch (error) {
-    return json(res, { error: error.message || String(error) }, 500);
+    return json(res, { error: error.message || String(error) }, error.status || 500);
   }
 });
 
@@ -285,7 +289,7 @@ function createCutoutJob(body) {
       actionName: sanitizeName(fields.actionName || fields.characterName || "cutout"),
       outputFormat: fields.outputFormat === "jpg" ? "jpg" : "png",
       jpgQuality: clampInt(fields.jpgQuality, 90, 1, 100),
-      backgroundMode: sanitizeBackgroundMode(fields.backgroundMode || env.BACKGROUND_MODE || "birefnet"),
+      backgroundMode: sanitizeBackgroundMode(fields.backgroundMode || env.BACKGROUND_MODE || "u2netp"),
       cutoutImage: files.cutoutImage?.path || null
     },
     result: null,
@@ -316,7 +320,7 @@ async function createUiBatchJob(body) {
       imageModel: sanitizeImageModel(fields.imageModel || env.SEEDREAM_MODEL || defaultSeedreamModel),
       outputFormat: fields.outputFormat === "jpg" ? "jpg" : "png",
       jpgQuality: clampInt(fields.jpgQuality, 90, 1, 100),
-      backgroundMode: sanitizeBackgroundMode(fields.backgroundMode || env.BACKGROUND_MODE || "birefnet"),
+      backgroundMode: sanitizeBackgroundMode(fields.backgroundMode || env.BACKGROUND_MODE || "u2netp"),
       cutoutAfterGenerate: parseBool(fields.uiCutoutAfterGenerate, true),
       negativePrompt: fields.negativePrompt || "",
       rows
@@ -1761,6 +1765,12 @@ function json(res, data, status = 200) {
   res.end(JSON.stringify(data));
 }
 
+function getClientIp(req) {
+  const forwarded = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim();
+  const realIp = String(req.headers["x-real-ip"] || "").trim();
+  return forwarded || realIp || req.socket.remoteAddress || "unknown";
+}
+
 function notFound(res) {
   res.writeHead(404, { "Content-Type": "application/json; charset=utf-8" });
   res.end(JSON.stringify({ error: "Not found" }));
@@ -2167,8 +2177,8 @@ function sanitizeVideoModel(value) {
 }
 
 function sanitizeBackgroundMode(value) {
-  const allowed = new Set(["auto", "ui", "color", "birefnet", "none"]);
-  return allowed.has(value) ? value : "birefnet";
+  const allowed = new Set(["auto", "ui", "color", "birefnet", "u2netp", "u2net", "none"]);
+  return allowed.has(value) ? value : "u2netp";
 }
 
 function sanitizeWorkflowAction(value) {

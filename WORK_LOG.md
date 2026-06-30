@@ -4,6 +4,110 @@
 
 ---
 
+## 12. 阶段 I：公网部署 + 账号/积分底座（进行中，2026-06-29）
+
+### I.1 公网部署闭环
+
+当前已完成基础版阿里云 ECS 部署：
+
+- 服务器：阿里云 ECS，Ubuntu 22.04，2 vCPU / 2 GiB 内存
+- 公网 IP：`8.130.115.57`
+- 项目目录：`/opt/2dplay`
+- Node 服务端口：`5177`
+- PM2 进程名：`2dplay`
+- Nginx 已反向代理 80 端口到本机 `5177`
+- 当前可通过 `http://8.130.115.57` 访问首页
+
+部署链路已跑通：
+
+```text
+GitHub 拉取项目 -> npm install -> .env mock 配置 -> npm start 验证 -> PM2 托管 -> Nginx 反代 -> 公网 IP 访问
+```
+
+域名 `2dplay.cn` 已购买，但暂未正式绑定。由于服务器位于中国大陆，正式使用域名访问通常需要先完成 ICP 备案。备案通过后再配置 DNS、Nginx server_name 和 HTTPS。
+
+### I.2 账号系统第一版
+
+本地工程已新增账号系统底座，尚未同步到服务器：
+
+- 新增 `server/auth.js`
+- 使用 `sql.js` 保存 SQLite 数据，数据库文件为 `data/app.sqlite`
+- 新增手机号验证码登录/注册接口：
+  - `POST /api/auth/send-code`
+  - `POST /api/auth/login`
+  - `POST /api/auth/logout`
+  - `GET /api/me`
+- 使用 HttpOnly Cookie 保存登录会话，默认有效期 14 天
+- 首次手机号登录即自动注册账号
+- 验证码当前为开发/内测模式：后端打印日志，并在接口返回 `devCode`，方便先跑通流程；后续接短信平台时替换发送逻辑
+
+### I.3 IP 防刷规则
+
+第一版不做复杂设备指纹，先采用轻量 IP 限制：
+
+```text
+同手机号：每天最多 5 次验证码
+同 IP：每天最多 20 次验证码
+同 IP：每天最多 3 个新账号领取注册送积分
+```
+
+说明：目标不是完全阻止所有薅羊毛，而是先把低成本批量注册的门槛抬高，同时保持基础服务器压力很低。
+
+### I.4 积分系统底座
+
+已新增积分账户与流水表：
+
+- `credit_accounts`：用户积分余额
+- `credit_ledger`：积分流水
+- 新用户注册赠送 `30` 体验积分
+- 顶部前端显示当前用户与积分余额
+- 新增 `GET /api/credits/ledger` 查询积分流水
+
+当前仅完成“账号 + 余额 + 注册赠送 + 流水底座”，还未把生成任务接入扣费。
+
+### I.5 前端登录入口
+
+已在前端新增：
+
+- 顶部登录按钮
+- 登录后显示昵称和积分
+- 手机号验证码登录弹窗
+- 未登录点击主要工具时先弹登录框
+
+### I.6 本地验证结果
+
+已在本机验证：
+
+- `node --check server/index.js` 通过
+- `node --check server/auth.js` 通过
+- 本地服务可启动
+- `/api/me` 匿名状态返回正常
+- 模拟手机号注册登录成功
+- 注册后积分余额为 `30`
+
+### I.7 下一步
+
+优先级从高到低：
+
+1. 将现有工具接入积分扣减：
+   - AI 生图
+   - 图片抠图
+   - 动作视频
+   - 视频抽帧
+   - 批量 UI
+2. 实现“任务开始前预扣，失败后返还”
+3. 增加管理员后台最小版：
+   - 用户列表
+   - 积分余额
+   - 手动增减积分
+   - 积分流水
+4. 完成本地验证后推送 GitHub
+5. 服务器执行 `git pull && npm install && pm2 restart 2dplay`
+
+---
+
+*最后更新：2026-06-29*
+
 ## 1. 项目概述
 
 **2D Game Asset Studio** 是一个本地运行的 AI 游戏素材生产工作站，面向独立游戏开发者 / 美术。当前覆盖五大工作流：
@@ -432,4 +536,77 @@ function resetTimelineEqual() {
 
 ---
 
-*最后更新：2026-06-20*
+## 12. 阶段 J：个人备案合规 + U2Net-p 接入（进行中，2026-06-30）
+
+### J.1 备案合规：屏蔽付费相关 UI
+
+**背景**：当前是个人 ICP 备案，类型为"个人学习网站"（素材列表备注"个人用于记录二维图像与网页工具开发相关的学习与数据展示"），不能含充值 / 会员 / 积分 / 收费相关功能。
+
+**已屏蔽内容**：
+
+| 位置 | 改动 |
+|------|------|
+| `public/index.html` 顶部 `account-widget` | 整段注释（登录按钮 + 积分余额 + 退出） |
+| `public/index.html` 登录弹窗 `.auth-card` | 整段注释（手机号 + 验证码 + 登录注册） |
+| `public/index.html` 文案 | "成本提示" → "规格提示"；"当前成本档位" → "当前规格档位"；"主要成本来自" → "规格由...决定" |
+| `public/index.html` 帧率提示 | "成本优化建议" → "可优先调整模型和分辨率优化生成效果" |
+| `public/app.js` `requireLogin()` | 改为直接 `return true`（原本会弹登录框拦截业务函数） |
+| `public/app.js` costCard 文案 | "省钱档" → "轻量档"；"偏贵" → "偏高清"；"高成本" → "高级档"；"省钱项" → "开关" |
+
+**保留**（不构成"对外展示的敏感内容"）：
+- 6 个工具本身（备案的"二维图像与网页工具开发"完全对得上）
+- server 端 `/api/auth/*` / `/api/credits/*` 路由和 `server/auth.js`（后端代码不展示给审核员）
+- 数据库表 `credit_accounts` / `credit_ledger`（同上）
+
+**验证结果**（Playwright 端到端）：
+- 全页面 grep：`成本` / `省钱` / `偏贵` / `高成本` / `积分` / `登录` / `充值` / `会员` 全部 **0 次**
+- "规格" 出现 **3 次**（替代原"成本"措辞）
+- 6 个工具仍能正常使用（`requireLogin` 改为通过）
+
+### J.3 简化 topbar:删除 API 连接状态块(2026-06-30)
+
+**原因**:用户认为"已连接 / 演示模式"提示对个人学习类项目无意义,删掉让 topbar 更干净。
+
+**改动**:
+- `public/index.html`:`.topbar-status` 块整段 HTML 注释
+- `public/app.js`:`loadConfig()` 改成 DOM 不存在时直接 skip(避免 `Cannot set properties of null` 报错)
+- `public/styles.css`:`.topbar-status` / `.status-dot` / `.status-dot.ok` / `.status-dot.warn` 相关样式整段注释
+- `public/index.html`:`<script src="/app.js?v=...">` 版本号从 `20260622-productized` 改为 `20260630-topbar`(强制浏览器清缓存加载新 JS)
+
+**结果**:
+- topbar 右侧只保留"所有工具"下拉,完全没有"已连接/演示模式"字样
+- 6 个工具照常使用,API Key 配置仍在 `.env`,只是不在 UI 显式提示
+
+### J.2 U2Net-p 接入（替代 BiRefNet）
+
+**背景**：BiRefNet 在 2GB ECS 服务器上**必 OOM**（实测：模型加载 1.8GB，单张 2048² 推理峰值 5.6GB）。改用 U2Net-p（rembg 集成）。
+
+**实测对比**（CPU 模式，模拟 2G 服务器）：
+
+| 抠图方式 | 内存峰值 | 速度 | 2G 服务器可用 |
+|---------|---------|------|------------|
+| 绿幕（OpenCV） | 412 MB | 0.2s | ✅ |
+| **U2Net-p（轻量）** | **740 MB** | **1.9s** | ✅ |
+| U2Net（标准） | ~1.2-1.5 GB | 3-5s | ⚠️ |
+| BiRefNet | 5634 MB | 16-18s | ❌ OOM |
+
+**改动**：
+- `scripts/process_video.py`：新增 `U2NetPBackgroundRemover` 类（rembg 集成）；工厂加 `u2netp` / `u2net` 两个 mode；`AutoBackgroundRemover` 改用 U2Net-p 兜底
+- `scripts/process_image.py` / `process_image_batch.py` / `extract_manual_frames.py`：argparse choices 加 `u2netp` / `u2net`；heartbeat 文案按 model 区分
+- `server/index.js`：`sanitizeBackgroundMode` 接受新值；默认从 `birefnet` 改 `u2netp`
+- `.env`：`BACKGROUND_MODE=birefnet` → `u2netp`
+- `public/index.html`：#backgroundMode select 加三档（u2netp 默认 / u2net / birefnet）
+
+**端到端实测**：
+- 输入 2048×2048 黑色忍者角色图
+- 模式 `u2netp`，耗时 5 秒（含首次模型下载）
+- 输出 2048×2048 RGBA PNG，背景完全去除，主体边缘清晰（披风/剑/药水瓶都干净）
+- 路径：`staging/cutouts/<name>/<name>_cutout.png`
+
+**商业 / 授权**：
+- U2Net-p 4.7MB 权重，Apache 2.0，可商用
+- 比 BiRefNet 略差（发丝边缘细节），但对游戏素材（角色立绘、道具、图标）精度足够
+
+---
+
+*最后更新：2026-06-30*

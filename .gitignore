@@ -88,4 +88,12 @@ playwright-mcp/
 __pycache__/
 *.log
 使用说明.txt
+COMMERCIALIZATION_PLAN.md
+DEPLOYMENT_PROGRESS.md
+scripts/mem_probe*.py
+staging-*.png
+staging-server-topbar.png
+staging-topbar-clean.png
+staging-iap-removed.png
+package-lock.json
 

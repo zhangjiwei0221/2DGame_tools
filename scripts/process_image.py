@@ -19,7 +19,7 @@ def main():
     parser.add_argument("--asset", required=True)
     parser.add_argument("--output-format", choices=["png", "jpg"], default="png")
     parser.add_argument("--jpg-quality", type=int, default=90)
-    parser.add_argument("--background-mode", choices=["auto", "ui", "color", "birefnet", "none"], default="auto")
+    parser.add_argument("--background-mode", choices=["auto", "ui", "color", "birefnet", "u2netp", "u2net", "none"], default="auto")
     parser.add_argument("--birefnet-model", default=os.environ.get("BIREFNET_MODEL", "ZhengPeng7/BiRefNet"))
     parser.add_argument("--birefnet-device", default=os.environ.get("BIREFNET_DEVICE", "auto"))
     args = parser.parse_args()
@@ -29,16 +29,15 @@ def main():
 
     progress(18, "正在读取图片")
     source = Image.open(args.input).convert("RGBA")
-    if args.background_mode == "birefnet":
+    if args.background_mode in ("birefnet", "u2netp", "u2net"):
         import threading, time as _time
         _stop_heartbeat = threading.Event()
-
+        model_label = {"birefnet": "BiRefNet", "u2netp": "U2Net-p", "u2net": "U2Net"}[args.background_mode]
         def _heartbeat():
             start = _time.time()
             while not _stop_heartbeat.is_set():
-                progress(28, f"正在加载 BiRefNet 模型…({int(_time.time() - start)}s)")
+                progress(28, f"正在加载 {model_label} 模型…({int(_time.time() - start)}s)")
                 _stop_heartbeat.wait(2)
-
         threading.Thread(target=_heartbeat, daemon=True).start()
         remover = make_background_remover(args.background_mode, args.birefnet_model, args.birefnet_device)
         _stop_heartbeat.set()

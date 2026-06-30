@@ -34,7 +34,7 @@ def main():
     parser.add_argument("--output-format", choices=["png", "jpg"], default="png")
     parser.add_argument("--jpg-quality", type=int, default=90)
     parser.add_argument("--frame-size", type=int, default=256)
-    parser.add_argument("--background-mode", choices=["auto", "ui", "color", "birefnet", "none"], default="birefnet")
+    parser.add_argument("--background-mode", choices=["auto", "ui", "color", "birefnet", "u2netp", "u2net", "none"], default="u2netp")
     parser.add_argument("--birefnet-model", default="ZhengPeng7/BiRefNet")
     parser.add_argument("--birefnet-device", default="auto")
     args = parser.parse_args()

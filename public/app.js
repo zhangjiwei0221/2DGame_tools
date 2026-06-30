@@ -43,6 +43,17 @@ const referenceFileInput = document.querySelector("#referenceFileInput");
 const referenceSlots = document.querySelector("#referenceSlots");
 const addReferenceButton = document.querySelector("#addReferenceButton");
 const refCountLabel = document.querySelector("#refCount");
+const loginOpenButton = document.querySelector("#loginOpenButton");
+const accountMenu = document.querySelector("#accountMenu");
+const accountName = document.querySelector("#accountName");
+const creditBalance = document.querySelector("#creditBalance");
+const logoutButton = document.querySelector("#logoutButton");
+const authModal = document.querySelector("#authModal");
+const authForm = document.querySelector("#authForm");
+const authPhone = document.querySelector("#authPhone");
+const authCode = document.querySelector("#authCode");
+const sendCodeButton = document.querySelector("#sendCodeButton");
+const authMessage = document.querySelector("#authMessage");
 
 const REFERENCE_ROLES = [
   { id: "style", label: "风格" },
@@ -92,6 +103,9 @@ let currentVideo = null;
 let promptPreviewTimer = null;
 let backgroundModeTouched = false;
 let recentResults = [];
+let currentUser = null;
+let currentCredits = 0;
+let sendCodeTimer = null;
 
 function loadRecentResults() {
   try {
@@ -312,6 +326,7 @@ function renderCharacterPresets() {
 
 setAutoNames();
 loadConfig();
+loadMe();
 loadRecentResults();
 renderRecentGallery();
 renderPresets();
@@ -327,6 +342,137 @@ schedulePromptPreview();
 if (window.lucide && typeof window.lucide.createIcons === "function") {
   window.lucide.createIcons();
 }
+
+function openAuthModal(message = "") {
+  if (!authModal) return;
+  authModal.hidden = false;
+  setAuthMessage(message, false);
+  setTimeout(() => authPhone?.focus(), 0);
+  if (window.lucide && typeof window.lucide.createIcons === "function") window.lucide.createIcons();
+}
+
+function closeAuthModal() {
+  if (authModal) authModal.hidden = true;
+}
+
+function setAuthMessage(message, ok = false) {
+  if (!authMessage) return;
+  authMessage.textContent = message || "";
+  authMessage.classList.toggle("is-ok", Boolean(ok));
+}
+
+function renderAccount() {
+  if (currentUser) {
+    if (loginOpenButton) loginOpenButton.hidden = true;
+    if (accountMenu) accountMenu.hidden = false;
+    if (accountName) accountName.textContent = currentUser.nickname || currentUser.phone || "已登录";
+    if (creditBalance) creditBalance.textContent = String(currentCredits || 0);
+  } else {
+    if (loginOpenButton) loginOpenButton.hidden = false;
+    if (accountMenu) accountMenu.hidden = true;
+  }
+  if (window.lucide && typeof window.lucide.createIcons === "function") window.lucide.createIcons();
+}
+
+async function loadMe() {
+  try {
+    const response = await fetch("/api/me");
+    const data = await response.json();
+    currentUser = data.user || null;
+    currentCredits = Number(data.credits || 0);
+  } catch {
+    currentUser = null;
+    currentCredits = 0;
+  }
+  renderAccount();
+}
+
+function requireLogin() {
+  // 备案合规:个人学习网站屏蔽登录拦截
+  // 工具全部可匿名使用
+  return true;
+}
+
+async function sendLoginCode() {
+  const phone = authPhone?.value?.trim() || "";
+  if (!/^1[3-9]\d{9}$/.test(phone)) {
+    setAuthMessage("请输入有效的手机号。");
+    return;
+  }
+  sendCodeButton.disabled = true;
+  setAuthMessage("正在发送验证码...");
+  try {
+    const response = await fetch("/api/auth/send-code", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "验证码发送失败");
+    const devCode = data.devCode ? ` 内测验证码：${data.devCode}` : "";
+    setAuthMessage(`验证码已发送。${devCode}`, true);
+    let remain = 60;
+    sendCodeButton.textContent = `${remain}s`;
+    clearInterval(sendCodeTimer);
+    sendCodeTimer = setInterval(() => {
+      remain -= 1;
+      if (remain <= 0) {
+        clearInterval(sendCodeTimer);
+        sendCodeButton.disabled = false;
+        sendCodeButton.textContent = "获取验证码";
+      } else {
+        sendCodeButton.textContent = `${remain}s`;
+      }
+    }, 1000);
+  } catch (error) {
+    sendCodeButton.disabled = false;
+    sendCodeButton.textContent = "获取验证码";
+    setAuthMessage(error.message || String(error));
+  }
+}
+
+async function submitLogin(event) {
+  event.preventDefault();
+  const phone = authPhone?.value?.trim() || "";
+  const code = authCode?.value?.trim() || "";
+  setAuthMessage("正在登录...");
+  try {
+    const response = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone, code })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "登录失败");
+    currentUser = data.user;
+    currentCredits = Number(data.credits || 0);
+    renderAccount();
+    closeAuthModal();
+    if (data.welcome?.granted) {
+      setProgress(`已登录，获得 ${data.welcome.amount} 体验积分`, "Ready", 100);
+    }
+  } catch (error) {
+    setAuthMessage(error.message || String(error));
+  }
+}
+
+async function logout() {
+  try {
+    await fetch("/api/auth/logout", { method: "POST" });
+  } catch {}
+  currentUser = null;
+  currentCredits = 0;
+  renderAccount();
+}
+
+loginOpenButton?.addEventListener("click", () => openAuthModal());
+sendCodeButton?.addEventListener("click", sendLoginCode);
+authForm?.addEventListener("submit", submitLogin);
+logoutButton?.addEventListener("click", logout);
+authModal?.querySelectorAll("[data-auth-close]").forEach((el) => el.addEventListener("click", closeAuthModal));
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && authModal && !authModal.hidden) closeAuthModal();
+});
 
 form.addEventListener("change", () => {
   syncControls();
@@ -390,6 +536,7 @@ clearManualButton.addEventListener("click", () => {
 
 async function generateAiVideo(event) {
   event.preventDefault();
+  if (!requireLogin()) return;
   setAutoNames("ai");
   setBusy(true);
   resetResultOnly();
@@ -416,6 +563,7 @@ async function generateAiVideo(event) {
 }
 
 async function generateCharacterImage() {
+  if (!requireLogin()) return;
   setAutoNames("character");
   setBusy(true);
   resetResultOnly();
@@ -451,6 +599,7 @@ async function generateCharacterImage() {
 }
 
 async function prepareExistingVideo() {
+  if (!requireLogin()) return;
   if (!finalVideo.files.length) return;
   setAutoNames("upload");
   if (currentVideo && !window.confirm("上传新视频会清空当前分帧工作区，继续吗？")) {
@@ -525,6 +674,7 @@ if (cutoutImages) {
 }
 
 async function cutoutUploadedImages() {
+  if (!requireLogin()) return;
   const files = cutoutImages?.files || [];
   if (!files.length) {
     showError("请先上传要抠图的图片。");
@@ -568,6 +718,7 @@ async function cutoutUploadedImages() {
 }
 
 async function generateUiBatch() {
+  if (!requireLogin()) return;
   if (!uiBatchFile.files.length && !uiBatchText.value.trim()) {
     showError("请先上传 .xlsx / CSV / TSV 表格，或直接粘贴 CSV 内容。");
     return;
@@ -602,6 +753,7 @@ async function generateUiBatch() {
 }
 
 async function exportAutoFrames() {
+  if (!requireLogin()) return;
   if (!currentVideo) {
     showError("请先上传或生成一个视频。");
     return;
@@ -650,13 +802,20 @@ async function exportAutoFrames() {
 async function loadConfig() {
   const response = await fetch("/api/config");
   const config = await response.json();
+  // topbar-status 块已删除(2026-06-30 简化),DOM 不存在直接跳过
+  const statusEl = document.querySelector("#configStatus");
+  if (statusEl) {
+    statusEl.textContent = config.mock ? "演示模式" : "已连接";
+  }
+  // dot 元素也跳过
   const dot = document.querySelector("#statusDot");
+  if (!dot) return;
   if (config.mock) {
-    configStatus.textContent = "演示模式";
-    if (dot) { dot.className = "status-dot warn"; dot.title = "不会产生 API 费用"; }
+    dot.className = "status-dot warn";
+    dot.title = "不会产生 API 费用";
   } else {
-    configStatus.textContent = "已连接";
-    if (dot) { dot.className = "status-dot ok"; dot.title = "API 密钥已配置，本地运行中"; }
+    dot.className = "status-dot ok";
+    dot.title = "API 密钥已配置，本地运行中";
   }
 }
 
@@ -1171,27 +1330,27 @@ function syncCostControls() {
   const durationScore = duration / 4;
   const score = resolutionScore * fpsScore * modelScore * durationScore;
 
-  let level = "省钱档";
+  let level = "轻量档";
   let text = "适合反复试动作。";
   if (score >= 16) {
-    level = "高成本";
+    level = "高级档";
     text = "建议只在动作已经确定后使用。";
   } else if (score >= 9) {
-    level = "偏贵";
+    level = "偏高清";
     text = "可以出正式版，但不适合大量试错。";
   } else if (score >= 5) {
-    level = "中等";
+    level = "标准档";
     text = "适合小批量测试。";
   }
 
   const fpsLabel = isMiniMaxVideoModel(model) ? "MiniMax 官方视频档" : "官方约 24fps";
   costHint.textContent = `${videoResolution.value} / ${duration} 秒 / ${fpsLabel}：${level}`;
-  costCard.innerHTML = `<strong>当前成本档位：${level}</strong><p>${videoResolution.value}，${duration} 秒，${fpsLabel}。${text}</p>`;
+  costCard.innerHTML = `<strong>当前规格档位：${level}</strong><p>${videoResolution.value}，${duration} 秒，${fpsLabel}。${text}</p>`;
   costNote.textContent = specialNote || (isMiniMaxVideoModel(model)
     ? "MiniMax 图生视频以参考图作为首帧，动作主要由提示词控制。"
     : videoResolution.value === "1080p"
     ? "1080p 像素量明显更高，建议先用 720p 确认动作和画面稳定性。"
-    : "真正稳定的省钱项是模型、分辨率和秒数；帧率可能被模型忽略，不要把它当成可靠降价按钮。");
+    : "规格由模型、分辨率和秒数决定；帧率可能被模型忽略，不要把它当成可靠开关。");
 }
 
 function isMiniMaxVideoModel(model) {
@@ -1503,6 +1662,7 @@ function renderManualCaptures() {
 }
 
 async function exportManualFrames() {
+  if (!requireLogin()) return;
   if (!currentVideo) {
     showError("请先上传或生成一个视频。");
     return;
