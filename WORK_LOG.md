@@ -609,4 +609,70 @@ function resetTimelineEqual() {
 
 ---
 
-*最后更新：2026-06-30*
+## 13. 阶段 K：工具页体验重构 + 批量 UI 下线（已完成，2026-07-01）
+
+本阶段围绕"工具页可用性"做了一轮集中打磨，并按产品方向删除了一个整功能。
+
+### K.1 删除"批量 UI 素材"工具
+
+**原因**：功能重，表格上传对普通用户门槛高，与个人工作台定位不符。
+
+**改动（前后端 + 文档全清）**：
+- `public/index.html`：删除下拉项、首页工具卡片、侧边模式卡片、整个 `ui-batch-module` 参数区
+- `public/app.js`：删除 handler、`generateUiBatch`、`renderUiBatchResult`、`VALID_TOOLS`/`MODE_ICONS`/`MODE_LABELS`/`TOOL_LABELS` 中的 uiBatch 项及所有引用
+- `server/index.js`：删除 `/api/ui-batch` 路由 + `createUiBatchJob` / `runUiBatchWorkflow` / `cutoutUiBatchAssets` / `generateUiAssetImage` / `makeUiBatchPreview` / `parseUiBatchRows` / `parseUiBatchRowsFromFile` / `buildUiAssetPrompt` / `parseDelimitedLine` / `normalizeUiBatchHeader`（保留通用图像/抠图函数）
+- `README.md`：工具表删除 uiBatch 行
+- 结果：导航三处（首页卡片 / topbar 下拉 / 侧边模式）统一为 4 个工具
+
+### K.2 结果保存：改为"仅手动保存进 exports"
+
+**背景**：README 声称"用户主动下载/保存才进 exports"，但后端生成后会**自动归档**，与文档矛盾，且 exports 会被无效产物污染。
+
+**改动**：
+- `server/index.js`：移除全部 5 处 `archiveArtifacts` 调用并删除该函数；各任务结果只留 `staging`，`exportDir`/`exportAbs` 置空，附带 `characterName`/`actionName`
+- 顺带修复生图原本把整个 `data/` 目录当 sourceDir 归档的隐患：改为写入独立 `staging/<name>/<action>/` 子目录
+- `moveStagingToExport` 增加返回 `exportAbs`/`exportRel`
+- `public/app.js` `renderResult`：未保存时渲染"💾 保存到本地"按钮，保存成功后回写路径并重渲染为"📁 在文件夹中显示 / 复制路径"
+- README 数据流说明恢复与代码一致
+
+### K.3 工具页布局：单栏 → 两栏工作台
+
+**痛点**：单栏居中导致"输入 + 输出"上下堆叠，一屏看不完，要一直往下滚。
+
+**方案（左输入 / 右输出）**：
+- `public/styles.css`：工具页 `.studio-shell` 改 `grid`（左 `1fr` 参数 + 右 `460px` 输出），最大宽 1240px 居中
+- 左栏 = `.inspector-panel`（参数，可滚动，`grid-column:1`）；右栏 = `.canvas-panel`（预览 + 分帧 + 历史，`grid-column:2`，`position:sticky` 跟随）
+- `#currentResult` 移入右栏顶部（`buildToolWorkbench`）
+- 右栏 `.asset-board` 从旧大画布 grid 行模板改 flex 纵向堆叠，消除"预览与历史之间的大空白"；预览空状态高度 500px → 280px
+- 窄屏 ≤1024px 回退单栏：参数在上、输出在下（`grid-row` + `order` 显式指定），右栏取消 sticky；移动端主操作按钮 `sticky` 吸底
+
+### K.4 交互与可访问性修复
+
+- **控件隔离**：`setSectionHidden()` 对非当前模式区块同时加 `hidden + inert + aria-hidden`，即使 CSS 失效也退出 Tab/读屏树（Playwright 实测生图页 16 个可聚焦元素全属当前工具）
+- **"用这张图生成动作视频"**：无图时禁用（`updateGoMotionButton`）；有图时把结果图拉成 dataURL 作为 `first_frame` 参考带入 motion 模式
+- **取消按钮**：`setBusy(isBusy, cancellable)`，仅异步轮询任务（视频/抠图）显示取消，同步任务（生图/抽帧）不再显示无效按钮
+- **字段隔离**：`buildScopedFormData()` 只收集非 inert 子树里的可见字段，杜绝隐藏区域同名 `negativePrompt` 串入提交
+- **抽帧空状态**：序列帧播放器去掉 `data-mode-only`，改由帧数据驱动，未上传视频时保持隐藏
+
+### K.5 内容精简（按产品/商业化方向）
+
+- 删除画布空状态的 3 个模板按钮（森林 RPG 角色 / 横版场景背景 / 批量抠图素材）
+- 删除参数区"提示词预设"按钮（RPG 角色 / 场景背景 / UI 图标 / Q 版头像）及 `characterPresets` / `renderCharacterPresets`
+- 动作视频页删除：**典型动作提示词**（`presets` / `renderPresets` / `actionPresets`）、**视角/游戏类型**（`cameraView` / `syncRatioForCamera`）、**官方输出帧率**（禁用的 `videoFps`）、**最终提示词预览**卡片（`schedulePromptPreview` / `updatePromptPreview` / `/api/prompt-preview` 前端调用）、**动作参考视频 URL**（`actionReferenceVideoUrl`，商业化时用户不知如何填写公网 URL）
+- 后端 `cameraView` / `actionReferenceVideoUrl` 缺失时有默认值兜底，不影响视频生成
+
+### K.6 视觉细节
+
+- 全局 `body` / `button` 负 `letter-spacing` 归零（中文界面不再显得拥挤）
+- "风格/负面提示词"并入"画面"卡片，取消独立分组；"画面"与"模型"改为上下竖排（`.ai-module` 单列 grid）
+- 工具页窄左栏内 `.section-title` / `.mini-head` 标题与副标题改竖排左对齐，消除副标题被 `space-between` 推到最右的大空隙
+- `.motion-extra` 从两栏 grid 改单栏 flex，修复"动作描述"（高文本框）与"视频秒数"（小下拉）凑一行导致下拉被拉宽拉高的问题；视频比例/分辨率保留成对两列
+- README 新增文件编码说明：源码统一 UTF-8，Windows 终端乱码是 GBK 代码页问题（`chcp 65001` 可解），文件本身无损坏
+
+### K.7 登录门槛澄清
+
+`requireLogin()` 现恒返回 `true`（备案期），工具全程匿名可用；调用点保留为商业化时恢复登录的钩子。报告中"离线工具却触发登录"的担忧在当前代码已不成立。
+
+---
+
+*最后更新：2026-07-01*

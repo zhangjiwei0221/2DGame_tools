@@ -16,14 +16,10 @@ const qualityValue = document.querySelector("#qualityValue");
 const outputFormat = document.querySelector("#outputFormat");
 const backgroundMode = document.querySelector("#backgroundMode");
 const jpgQualityField = document.querySelector("#jpgQualityField");
-const cameraView = document.querySelector("#cameraView");
 const videoRatio = document.querySelector("select[name=videoRatio]");
 const characterImageModel = document.querySelector("select[name=characterImageModel]");
-const uiImageModel = document.querySelector("select[name=uiImageModel]");
 const customCharacterImageModelField = document.querySelector("#customCharacterImageModelField");
-const customUiImageModelField = document.querySelector("#customUiImageModelField");
 const customCharacterImageModel = document.querySelector("input[name=customCharacterImageModel]");
-const uiCustomImageModel = document.querySelector("input[name=uiCustomImageModel]");
 const videoModel = document.querySelector("select[name=videoModel]");
 const videoDuration = document.querySelector("select[name=videoDuration]");
 const videoResolution = document.querySelector("#videoResolution");
@@ -32,12 +28,16 @@ const costCard = document.querySelector("#costCard");
 const costNote = document.querySelector("#costNote");
 const customModelField = document.querySelector("#customModelField");
 const customVideoModel = document.querySelector("input[name=customVideoModel]");
+const motionRefLibrary = document.querySelector("#motionRefLibrary");
+const motionRefGrid = document.querySelector("#motionRefGrid");
+const motionRefModelHint = document.querySelector("#motionRefModelHint");
+const motionPresetIdInput = document.querySelector("#motionPresetId");
+const motionLightbox = document.querySelector("#motionLightbox");
+const motionLightboxVideo = document.querySelector("#motionLightboxVideo");
+const motionLightboxTitle = document.querySelector("#motionLightboxTitle");
 const characterNameInput = document.querySelector("#characterNameInput");
 const actionNameInput = document.querySelector("#actionNameInput");
 const actionPrompt = document.querySelector("textarea[name=actionPrompt]");
-const actionPresets = document.querySelector("#actionPresets");
-const promptPreview = document.querySelector("#promptPreview");
-const promptPreviewMeta = document.querySelector("#promptPreviewMeta");
 const characterReferenceInput = document.querySelector("input[name=characterReference]");
 const referenceFileInput = document.querySelector("#referenceFileInput");
 const referenceSlots = document.querySelector("#referenceSlots");
@@ -63,7 +63,6 @@ const REFERENCE_ROLES = [
 ];
 const MAX_REFERENCES = 4;
 const referenceImages = []; // [{ file, role, dataUrl }]
-const actionReferenceVideoUrl = document.querySelector("input[name=actionReferenceVideoUrl]");
 const finalVideo = document.querySelector("#finalVideo");
 const cutoutImages = document.querySelector("#cutoutImages");
 const cutoutImageList = document.querySelector("#cutoutImageList");
@@ -72,8 +71,6 @@ const cutoutProgress = document.querySelector("#cutoutProgress");
 const cutoutStepTitle = document.querySelector("#cutoutStepTitle");
 const cutoutProgressText = document.querySelector("#cutoutProgressText");
 const cutoutBarFill = document.querySelector("#cutoutBarFill");
-const uiBatchFile = document.querySelector("#uiBatchFile");
-const uiBatchText = document.querySelector("#uiBatchText");
 const videoEmptyState = document.querySelector("#videoEmptyState");
 const manualPanel = document.querySelector("#manualPanel");
 const autoPanel = document.querySelector("#autoPanel");
@@ -91,7 +88,6 @@ const manualFrames = document.querySelector("#manualFrames");
 const aiGenerateButton = document.querySelector("#aiGenerateButton");
 const characterGenerateButton = document.querySelector("#characterGenerateButton");
 const cutoutButton = document.querySelector("#cutoutButton");
-const uiBatchButton = document.querySelector("#uiBatchButton");
 const goMotionFromCharacterButton = document.querySelector("#goMotionFromCharacterButton");
 
 let latestJob = null;
@@ -100,12 +96,12 @@ let filmstripFrames = [];
 let isDraggingTimeline = false;
 let pendingSeek = null;
 let currentVideo = null;
-let promptPreviewTimer = null;
 let backgroundModeTouched = false;
 let recentResults = [];
 let currentUser = null;
 let currentCredits = 0;
 let sendCodeTimer = null;
+let lastCharacterImageUrl = ""; // 最近一次生图结果的图片 URL,供"用这张图生成动作视频"使用
 
 function loadRecentResults() {
   try {
@@ -122,16 +118,14 @@ const MODE_ICONS = {
   character: "image",
   cutout: "scissors",
   motion: "video",
-  frames: "film",
-  uiBatch: "layout-grid"
+  frames: "film"
 };
 
 const MODE_LABELS = {
   character: "生图",
   cutout: "抠图",
   motion: "视频",
-  frames: "抽帧",
-  uiBatch: "批量 UI"
+  frames: "抽帧"
 };
 
 function addToRecent(result, context = {}) {
@@ -171,7 +165,6 @@ function reuseRecentEntry(entry) {
         if (opt) modelField.value = opt.value;
       }
     }
-    if (typeof schedulePromptPreview === "function") schedulePromptPreview();
   } else if (entry.mode && typeof switchToolMode === "function") {
     switchToolMode(entry.mode);
   }
@@ -242,101 +235,17 @@ if (cancelTaskButton) {
   });
 }
 
-// 空状态模板按钮:点击切换模式 + 填预设
-document.querySelectorAll(".empty-template").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    const tpl = btn.dataset.template;
-    if (tpl === "rpg" || tpl === "scene") {
-      if (typeof switchToolMode === "function") switchToolMode("character");
-      const preset = characterPresets.find(p => p.id === tpl);
-      const ta = document.querySelector('[name="characterPrompt"]');
-      if (preset && ta) {
-        ta.value = preset.prompt;
-        ta.focus();
-        if (typeof schedulePromptPreview === "function") schedulePromptPreview();
-      }
-    } else if (tpl === "cutout") {
-      if (typeof switchToolMode === "function") switchToolMode("cutout");
-    }
-  });
-});
-
-const presets = [
-  { name: "待机", text: "制作一个可循环的待机动作。角色保持原地，呼吸带动肩膀和身体轻微上下起伏，头发和衣摆有很小的延迟摆动。动作幅度不要夸张，首帧和尾帧姿态尽量接近，方便做游戏 idle loop。保持角色完整入镜，轮廓清晰，不要镜头移动。" },
-  { name: "跑步", text: "制作一个可循环的跑步动作。角色步伐清晰，左右腿交替明显，手臂自然摆动，身体重心有轻微上下弹跳，但脚底落点要稳定。首尾姿态尽量能衔接成 loop，动作不要突然加速或停顿。保持角色完整入镜，轮廓清晰，不要镜头移动。" },
-  { name: "走路", text: "制作一个可循环的走路动作。步伐比跑步更慢，脚步交替清楚，身体重心平稳移动，手臂有轻微自然摆动。动作需要适合拆成 8 到 12 张游戏序列帧，首尾姿态尽量接近，方便循环播放。" },
-  { name: "跳跃", text: "制作一个完整跳跃动作：先轻微下蹲蓄力，然后起跳上升，空中停顿一瞬，最后下落并落地缓冲。动作要读得清楚，角色不要飞出画面，落地后姿态稳定。适合拆成游戏里的 jump 动画序列帧。" },
-  { name: "近战攻击", text: "制作一个清晰的近战攻击动作：先有短暂蓄力姿态，然后武器或手臂快速向前攻击，最后收招回到稳定姿态。攻击弧线要明显，角色轮廓要好读，不要加入敌人、特效文字或复杂背景。适合拆成 8 到 12 张攻击序列帧。" },
-  { name: "施法", text: "制作一个施法动作：角色抬手或举起武器，能量逐渐聚集，然后向前释放，最后回到稳定姿态。特效可以有少量光效，但不要遮挡角色主体，不要出现文字或 UI。动作要适合游戏技能动画序列帧。" },
-  { name: "受击", text: "制作一个受击反馈动作：角色身体被冲击向后顿一下，头部和肩膀有明显反应，然后快速恢复站稳。动作时间短、节奏清楚，轮廓要夸张易读，适合游戏 hurt 动画。" },
-  { name: "闪避", text: "制作一个快速闪避动作：角色先压低重心，然后向指定方向快速闪避或翻滚，最后恢复到可继续行动的姿态。动作要紧凑，主体不要离开画面，轮廓变化要清楚，适合游戏 dodge 动画。" },
-  { name: "倒地", text: "制作一个失败或倒地动作：角色先失去平衡，然后身体下落倒地，最后停在清晰的倒地姿态。不要过度血腥，不要加入场景叙事，最后一帧要适合作为游戏里的 defeated 静止帧。" }
-];
-
-const characterPresets = [
-  {
-    id: "rpg",
-    icon: "swords",
-    name: "RPG 角色",
-    prompt: "2D RPG 角色立绘，俯视角全身像，森林战斗场景。年轻剑士，深色斗篷，护肩皮甲，腰挂短剑和药瓶，右手按剑柄，神情警觉。背景是青苔石台与柔光雾气。轮廓清晰、线条干净、适合拆成序列帧素材。"
-  },
-  {
-    id: "scene",
-    icon: "mountain",
-    name: "场景背景",
-    prompt: "2D 横版游戏场景背景，远景分层。前景青苔石台与断木，中景雾气中的针叶林，远景雪山轮廓。色调冷绿与琥珀，柔和雾气，光线从右上斜入。适合作为横版卷轴关卡背景，无人物主体，无文字 UI。"
-  },
-  {
-    id: "ui",
-    icon: "box",
-    name: "UI 图标",
-    prompt: "2D 游戏 UI 图标，扁平化设计，圆形描边底，蓝色到紫色渐变。图标内容是一个发光药水瓶，里面是淡紫色液体，表面有星点高光。整体读图清晰、轮廓锐利、适合作为游戏内物品栏图标，无背景文字。"
-  },
-  {
-    id: "chibi",
-    icon: "smile",
-    name: "Q 版头像",
-    prompt: "Q 版角色头像，大头小身比例。蒸汽朋克机械师，棕色短发，戴护目镜，护目镜反射城市霓虹。表情温柔微笑，机械手臂末端是小型扳手。背景是模糊的齿轮与铜管，色调暖橙与深蓝，电影感光照，轮廓清晰。"
-  }
-];
-
-const characterPresetContainer = document.querySelector("#characterPresets");
-const characterPromptField = document.querySelector('[name="characterPrompt"]');
-
-function renderCharacterPresets() {
-  if (!characterPresetContainer) return;
-  characterPresetContainer.innerHTML = characterPresets.map((preset) => (
-    `<button class="preset-button preset-with-icon" type="button" data-character-preset="${preset.id}">
-       <i data-lucide="${preset.icon}"></i><span>${preset.name}</span>
-     </button>`
-  )).join("");
-  if (window.lucide && typeof window.lucide.createIcons === "function") {
-    window.lucide.createIcons();
-  }
-  characterPresetContainer.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-character-preset]");
-    if (!button || !characterPromptField) return;
-    const preset = characterPresets.find((item) => item.id === button.dataset.characterPreset);
-    if (!preset) return;
-    characterPromptField.value = preset.prompt;
-    characterPromptField.focus();
-    if (typeof schedulePromptPreview === "function") schedulePromptPreview();
-  });
-}
-
 setAutoNames();
 loadConfig();
 loadMe();
 loadRecentResults();
 renderRecentGallery();
-renderPresets();
-renderCharacterPresets();
 syncControls();
 syncToolMode();
 syncFramePanels();
 renderManualCaptures();
 updateStepButtons();
-schedulePromptPreview();
+updateGoMotionButton();
 
 // lucide 图标初始化(defer 加载,需在 DOMContentLoaded 后调用)
 if (window.lucide && typeof window.lucide.createIcons === "function") {
@@ -470,21 +379,21 @@ sendCodeButton?.addEventListener("click", sendLoginCode);
 authForm?.addEventListener("submit", submitLogin);
 logoutButton?.addEventListener("click", logout);
 authModal?.querySelectorAll("[data-auth-close]").forEach((el) => el.addEventListener("click", closeAuthModal));
+motionLightbox?.querySelectorAll("[data-lightbox-close]").forEach((el) => el.addEventListener("click", closeMotionLightbox));
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && authModal && !authModal.hidden) closeAuthModal();
+  if (event.key === "Escape" && motionLightbox && !motionLightbox.hidden) closeMotionLightbox();
 });
 
 form.addEventListener("change", () => {
   syncControls();
   syncToolMode();
   syncFramePanels();
-  schedulePromptPreview();
 });
 form.addEventListener("submit", generateAiVideo);
 characterGenerateButton.addEventListener("click", generateCharacterImage);
 cutoutButton.addEventListener("click", cutoutUploadedImages);
-uiBatchButton.addEventListener("click", generateUiBatch);
-goMotionFromCharacterButton.addEventListener("click", () => switchToolMode("motion"));
+goMotionFromCharacterButton.addEventListener("click", goMotionWithCurrentImage);
 document.querySelectorAll("[data-switch-mode]").forEach((button) => {
   button.addEventListener("click", () => switchToolMode(button.dataset.switchMode));
 });
@@ -493,17 +402,12 @@ finalVideo.addEventListener("change", prepareExistingVideo);
 qualityInput.addEventListener("input", () => {
   qualityValue.textContent = qualityInput.value;
 });
-cameraView.addEventListener("change", syncRatioForCamera);
-cameraView.addEventListener("change", schedulePromptPreview);
 videoModel.addEventListener("change", syncCustomModelField);
 videoModel.addEventListener("change", syncCostControls);
-videoModel.addEventListener("change", schedulePromptPreview);
+videoModel.addEventListener("change", syncMotionRefAvailability);
 customVideoModel.addEventListener("input", syncCostControls);
-customVideoModel.addEventListener("input", schedulePromptPreview);
+customVideoModel.addEventListener("input", syncMotionRefAvailability);
 characterImageModel.addEventListener("change", syncCustomImageModelFields);
-uiImageModel.addEventListener("change", syncCustomImageModelFields);
-actionPrompt.addEventListener("input", schedulePromptPreview);
-actionReferenceVideoUrl.addEventListener("input", schedulePromptPreview);
 videoDuration.addEventListener("change", syncCostControls);
 videoResolution.addEventListener("change", syncCostControls);
 backgroundMode.addEventListener("change", () => {
@@ -534,15 +438,46 @@ clearManualButton.addEventListener("click", () => {
   renderManualCaptures();
 });
 
+// 只收集"当前模式下可见"的表单字段,避免隐藏区域里的同名字段(如多个 negativePrompt)
+// 一起被打包提交。隐藏区域已被标记 inert/hidden,据此跳过。
+function isInInertSubtree(el) {
+  let node = el;
+  while (node && node !== form) {
+    if (node.hidden || node.hasAttribute?.("inert")) return true;
+    node = node.parentElement;
+  }
+  return false;
+}
+
+function buildScopedFormData() {
+  const data = new FormData();
+  const controls = form.querySelectorAll("input, select, textarea");
+  for (const el of controls) {
+    if (!el.name) continue;
+    // 隐藏的 toolMode/characterName/actionName 等始终保留(它们是逻辑字段,不在可见区域)
+    const isLogicHidden = el.type === "hidden" || el.name === "toolMode";
+    if (!isLogicHidden && isInInertSubtree(el)) continue;
+    if (el.type === "radio" || el.type === "checkbox") {
+      if (!el.checked) continue;
+      data.append(el.name, el.value);
+    } else if (el.type === "file") {
+      for (const file of el.files) data.append(el.name, file, file.name);
+    } else {
+      data.append(el.name, el.value);
+    }
+  }
+  return data;
+}
+
 async function generateAiVideo(event) {
   event.preventDefault();
   if (!requireLogin()) return;
   setAutoNames("ai");
-  setBusy(true);
+  setBusy(true, true);
   resetResultOnly();
   setProgress("正在根据参考图和动作描述生成新视频", "0%", 0);
 
-  const formData = new FormData(form);
+  const formData = buildScopedFormData();
   formData.delete("finalVideo");
   formData.set("workflowAction", "video");
   applySelectedImageModel(formData, characterImageModel);
@@ -569,9 +504,8 @@ async function generateCharacterImage() {
   resetResultOnly();
   setProgress("正在生成图片", "0%", 0);
 
-  const formData = new FormData(form);
+  const formData = buildScopedFormData();
   formData.delete("finalVideo");
-  formData.delete("actionReferenceVideoUrl");
   applySelectedImageModel(formData, characterImageModel);
   appendReferenceFieldsToFormData(formData);
   const originalPrompt = formData.get("characterPrompt") || "";
@@ -584,8 +518,10 @@ async function generateCharacterImage() {
     });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || "图片生成失败");
+    lastCharacterImageUrl = result.image || "";
     renderResult(result);
     setProgress("图片已生成", "100%", 100);
+    updateGoMotionButton();
     addToRecent(result, {
       mode: "character",
       prompt: formData.get("characterPrompt") || "",
@@ -595,6 +531,45 @@ async function generateCharacterImage() {
     showError(error);
   } finally {
     setBusy(false);
+  }
+}
+
+// "用这张图生成动作视频":只有在已有生成图片时才可用,并把该图作为首帧参考带入 motion 模式
+function updateGoMotionButton() {
+  if (!goMotionFromCharacterButton) return;
+  const hasImage = Boolean(lastCharacterImageUrl);
+  goMotionFromCharacterButton.disabled = !hasImage;
+  goMotionFromCharacterButton.title = hasImage
+    ? "把当前生成的图片作为首帧,切到动作视频"
+    : "请先生成一张图片,才能用它生成动作视频";
+}
+
+async function goMotionWithCurrentImage() {
+  if (!lastCharacterImageUrl) {
+    showError("还没有可用的图片。请先在生图工具里生成一张,再用它生成动作视频。");
+    return;
+  }
+  if (referenceImages.length >= MAX_REFERENCES) {
+    showError(`参考图最多 ${MAX_REFERENCES} 张,请先在动作视频页移除一张再试。`);
+    switchToolMode("motion");
+    return;
+  }
+  try {
+    // 把服务器上的生图结果拉成 dataURL,作为 first_frame 参考塞进参考图列表
+    const response = await fetch(lastCharacterImageUrl);
+    if (!response.ok) throw new Error("无法读取当前图片");
+    const blob = await response.blob();
+    const file = new File([blob], "from-character.png", { type: blob.type || "image/png" });
+    const dataUrl = await readFileAsDataUrl(file);
+    referenceImages.push({ file, role: "first_frame", dataUrl });
+    renderReferenceSlots();
+    updateRefCount();
+    switchToolMode("motion");
+    updateReferencePreview();
+    setProgress("已把当前图片带入动作视频,作为首帧参考", "Ready", 100);
+  } catch (error) {
+    showError(error);
+    switchToolMode("motion");
   }
 }
 
@@ -681,7 +656,7 @@ async function cutoutUploadedImages() {
     return;
   }
   setAutoNames("cutout");
-  setBusy(true);
+  setBusy(true, true);
   resetResultOnly();
 
   // 显示进度条
@@ -714,41 +689,6 @@ async function cutoutUploadedImages() {
     showError(error);
     setBusy(false);
     if (cutoutProgress) cutoutProgress.hidden = true;
-  }
-}
-
-async function generateUiBatch() {
-  if (!requireLogin()) return;
-  if (!uiBatchFile.files.length && !uiBatchText.value.trim()) {
-    showError("请先上传 .xlsx / CSV / TSV 表格，或直接粘贴 CSV 内容。");
-    return;
-  }
-  setAutoNames("ui_batch");
-  setBusy(true);
-  resetResultOnly();
-  setProgress("正在读取 UI 素材表格", "5%", 5);
-
-  const formData = new FormData(form);
-  formData.delete("finalVideo");
-  formData.delete("characterReference");
-  formData.delete("characterReferences");
-  formData.delete("cutoutImages");
-  applySelectedImageModel(formData, uiImageModel);
-  if (!backgroundModeTouched) {
-    formData.set("backgroundMode", "auto");
-  }
-
-  try {
-    const response = await fetch("/api/ui-batch", {
-      method: "POST",
-      body: formData
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || "批量 UI 素材任务启动失败");
-    pollJob(data.jobId);
-  } catch (error) {
-    showError(error);
-    setBusy(false);
   }
 }
 
@@ -858,9 +798,8 @@ function renderJob(job) {
 function guessModeFromInput(input) {
   if (!input) return "character";
   if (input.cutoutImage) return "cutout";
-  if (input.actionReferenceVideoUrl || (input.actionPrompt && (input.characterReference || (Array.isArray(input.characterReferences) && input.characterReferences.length)))) return "motion";
+  if (input.actionPrompt && (input.characterReference || (Array.isArray(input.characterReferences) && input.characterReferences.length))) return "motion";
   if (input.workflowAction === "video" || input.workflowAction === "frames") return "frames";
-  if (Array.isArray(input.rows) || input.batchName) return "uiBatch";
   return "character";
 }
 
@@ -871,20 +810,6 @@ function showCurrentResult({ type, src, alt, result }) {
   let html = "";
   if (type === "image" && src) {
     html = `<a href="${src}" target="_blank" rel="noopener"><img src="${src}" alt="${escapeHtml(alt || "结果")}" /></a>`;
-  } else if (type === "uiBatch" && result?.uiAssets) {
-    const assets = result.uiAssets;
-    const rows = assets.map((a) => `
-      <article class="batch-asset ${a.status}">
-        ${a.url ? `<img src="${a.url}" alt="${escapeHtml(a.assetName)}" />` : `<div class="batch-missing">失败</div>`}
-        <strong>${escapeHtml(a.assetName)}</strong>
-        <span>${escapeHtml(a.type || "ui")} · ${escapeHtml(a.size || "")} · ${a.cutout ? "已抠图" : "原图"}</span>
-        ${a.error ? `<small>${escapeHtml(a.error)}</small>` : ""}
-      </article>
-    `).join("");
-    html = `
-      ${result.preview ? `<img class="batch-contact" src="${result.preview}" alt="UI 批量预览" />` : ""}
-      <div class="batch-grid">${rows}</div>
-    `;
   } else if (type === "batchCutout" && result?.batchResults) {
     const rows = result.batchResults.map((r) => `
       <article class="batch-asset ${r.status}">
@@ -915,10 +840,6 @@ function renderResult(result) {
     previewArea.innerHTML = `<img src="${result.preview}" alt="Frame preview" />`;
     showCurrentResult({ type: "image", src: result.preview, alt: "抽帧结果" });
   }
-  if (result.uiAssets) {
-    renderUiBatchResult(result);
-    showCurrentResult({ type: "uiBatch", result });
-  }
   if (result.batchResults) {
     renderBatchCutoutResult(result);
     showCurrentResult({ type: "batchCutout", result });
@@ -927,9 +848,12 @@ function renderResult(result) {
     // 抽帧/序列帧导出完成 → 加载到序列帧播放器
     initSequencePlayer(result.frames, "导出序列帧");
   }
-  // 优先展示归档后的磁盘路径(若后端已完成自动归档)
+  // 结果只留在 staging(临时),用户主动点"保存到本地"才复制进 exports(正式)
   const exportAbs = result.exportAbs || "";
   const exportRel = result.exportDir || "";
+  const staging = result.staging || "";
+  const charName = result.characterName || characterNameInput.value || "asset";
+  const actName = result.actionName || actionNameInput.value || "";
   const pathDisplay = exportRel && !exportRel.startsWith("/staging/")
     ? exportRel
     : (exportRel ? exportRel.replace(/^\/staging\//, "staging/") : "");
@@ -937,9 +861,11 @@ function renderResult(result) {
     result.download ? `<a href="${result.download}" download>下载图片</a>` : "",
     result.manifest ? `<a href="${result.manifest}" target="_blank">查看 manifest</a>` : "",
     result.preview ? `<a href="${result.preview}" target="_blank">打开预览图</a>` : "",
+    staging && !exportAbs ? `<button type="button" class="link-button primary-action save-staging" data-staging="${escapeHtml(staging)}" data-char="${escapeHtml(charName)}" data-act="${escapeHtml(actName)}" title="复制到 exports 正式目录">💾 保存到本地</button>` : "",
     exportAbs ? `<button type="button" class="link-button open-folder" data-path="${escapeHtml(exportAbs)}" title="${escapeHtml(exportAbs)}">📁 在文件夹中显示</button>` : "",
     exportRel ? `<button type="button" class="link-button copy-path" data-path="${escapeHtml(exportRel)}" title="复制路径">📋 复制路径</button>` : "",
     result.videoInfo ? `<span>实际视频：${formatVideoInfo(result.videoInfo)}</span>` : "",
+    staging && !exportAbs ? `<span class="export-hint">结果暂存中，点"保存到本地"才会写入 exports。</span>` : "",
     pathDisplay ? `<code class="export-path">${escapeHtml(pathDisplay)}</code>` : ""
   ].filter(Boolean).join("");
   links.querySelector("[data-download-zip]")?.addEventListener("click", (event) => {
@@ -961,20 +887,19 @@ function renderResult(result) {
       });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.error || "保存失败");
-      btn.textContent = "已保存 ✓";
-      btn.disabled = true;
-      if (data.zip) {
-        const a = document.createElement("a");
-        a.href = data.zip;
-        a.download = "";
-        a.style.display = "none";
-        document.body.append(a);
-        a.click();
-        a.remove();
+      // 保存成功:把 exports 路径写回当前结果并重渲染,出现"在文件夹中显示"
+      if (latestJob?.result) {
+        latestJob.result.exportAbs = data.exportAbs || "";
+        latestJob.result.exportDir = data.exportRel || data.exportDir || "";
+        renderResult(latestJob.result);
+      } else {
+        btn.textContent = "已保存 ✓";
+        btn.disabled = true;
       }
+      setProgress("已保存到 exports", "100%", 100);
     } catch (err) {
       showError(err);
-      btn.textContent = "保存到本地";
+      btn.textContent = "💾 保存到本地";
       btn.disabled = false;
     }
   });
@@ -1022,26 +947,6 @@ function renderResult(result) {
       setTimeout(() => { btn.textContent = "📋 复制路径"; }, 1500);
     }
   });
-}
-
-function renderUiBatchResult(result) {
-  const assets = result.uiAssets || [];
-  const rows = assets.map((asset) => `
-    <article class="batch-asset ${asset.status}">
-      ${asset.url ? `<img src="${asset.url}" alt="${escapeHtml(asset.assetName)}" />` : `<div class="batch-missing">失败</div>`}
-      <strong>${escapeHtml(asset.assetName)}</strong>
-      <span>${escapeHtml(asset.type || "ui")} · ${escapeHtml(asset.size || "")} · ${asset.cutout ? "已抠图" : "原图"}</span>
-      ${asset.generatedUrl && asset.generatedUrl !== asset.url ? `<a href="${asset.generatedUrl}" target="_blank">查看原图</a>` : ""}
-      ${asset.error ? `<small>${escapeHtml(asset.error)}</small>` : ""}
-    </article>
-  `).join("");
-  previewArea.className = "preview batch-preview";
-  previewArea.innerHTML = `
-    <div class="batch-result">
-      ${result.preview ? `<img class="batch-contact" src="${result.preview}" alt="UI batch preview" />` : ""}
-      <div class="batch-grid">${rows}</div>
-    </div>
-  `;
 }
 
 function renderBatchCutoutResult(result) {
@@ -1093,44 +998,51 @@ function syncControls() {
   syncCostControls();
 }
 
+// 统一设置区块的隐藏状态:hidden(布局) + inert(交互/Tab) + aria-hidden(读屏),三重保证
+function setSectionHidden(element, isHidden) {
+  if (!element) return;
+  element.hidden = isHidden;
+  if (isHidden) {
+    element.setAttribute("aria-hidden", "true");
+    element.setAttribute("inert", "");
+  } else {
+    element.removeAttribute("aria-hidden");
+    element.removeAttribute("inert");
+  }
+}
+
 function syncToolMode() {
   const mode = new FormData(form).get("toolMode") || "character";
   const titles = {
-    character: "生图画布",
-    cutout: "图片抠图画布",
-    motion: "动作视频画布",
-    frames: "视频抽帧画布",
-    uiBatch: "批量 UI 素材画布"
-  };
-  const hints = {
-    character: "右侧上传参考图或填写描述，然后生成图片素材。",
-    cutout: "右侧上传一张图片，选择抠图方式后直接导出透明 PNG。",
-    motion: "右侧准备参考图、动作描述或视频 URL，生成后在这里预览视频并进入分帧。",
-    frames: "右侧上传最终视频，上传后这里会出现播放器和抽帧工具。",
-    uiBatch: "右侧上传 UI 素材提示词表格，确认后按行批量生成图标、按钮和面板。"
+    character: "生图结果",
+    cutout: "抠图结果",
+    motion: "动作视频结果",
+    frames: "视频抽帧结果"
   };
   canvasTitle.textContent = titles[mode] || "当前资产";
+  // 隐藏其它模式的区块:同时用 hidden + inert + aria-hidden,
+  // 即使 CSS 没加载,inert 也能让无关控件退出 Tab 序和读屏树(防 #1 的"样式异常"场景)。
   document.querySelectorAll("[data-mode-only]").forEach((element) => {
     const modes = element.dataset.modeOnly.split(",").map((item) => item.trim());
-    element.hidden = !modes.includes(mode);
+    setSectionHidden(element, !modes.includes(mode));
   });
   document.querySelectorAll("[data-motion-only]").forEach((element) => {
-    element.hidden = mode !== "motion";
+    setSectionHidden(element, mode !== "motion");
   });
-  characterGenerateButton.hidden = mode !== "character";
+  setSectionHidden(characterGenerateButton, mode !== "character");
   if (!currentVideo && previewArea.classList.contains("empty")) {
-    // 保留 HTML 中的引导模板,只更新提示文字
+    // 预览区在参数下方,空状态保持中性文案即可
     const hintEl = previewArea.querySelector(".empty-asset > p");
     const titleEl = previewArea.querySelector(".empty-asset > strong");
-    if (hintEl) hintEl.textContent = hints[mode] || "选择一个工作流开始。";
-    if (titleEl) titleEl.textContent = "开始你的第一个素材";
+    if (hintEl) hintEl.textContent = "生成或处理完成后，结果会显示在这里。";
+    if (titleEl) titleEl.textContent = "结果预览";
   }
   syncDefaultBackgroundModeForTool(mode);
 }
 
 function syncDefaultBackgroundModeForTool(mode) {
   if (!backgroundMode || backgroundModeTouched) return;
-  backgroundMode.value = mode === "uiBatch" ? "auto" : "birefnet";
+  backgroundMode.value = "u2netp";
 }
 
 function switchToolMode(mode) {
@@ -1291,9 +1203,6 @@ function syncCustomImageModelFields() {
   if (customCharacterImageModelField) {
     customCharacterImageModelField.hidden = !["character", "motion"].includes(mode) || characterImageModel.value !== "custom";
   }
-  if (customUiImageModelField) {
-    customUiImageModelField.hidden = mode !== "uiBatch" || uiImageModel.value !== "custom";
-  }
 }
 
 function syncCostControls() {
@@ -1357,6 +1266,132 @@ function isMiniMaxVideoModel(model) {
   return String(model || "").startsWith("minimax-video:");
 }
 
+// ---- 动作参考库(预设视频)----
+let motionPresets = [];
+let selectedMotionPresetId = "";
+
+async function initMotionPresets() {
+  if (!motionRefGrid) return;
+  try {
+    const response = await fetch("/api/motion-presets");
+    const data = await response.json();
+    motionPresets = Array.isArray(data.presets) ? data.presets : [];
+  } catch {
+    motionPresets = [];
+  }
+  renderMotionPresets();
+  syncMotionRefAvailability();
+}
+
+function renderMotionPresets() {
+  if (!motionRefGrid) return;
+  motionRefGrid.innerHTML = "";
+  // "不使用参考"卡片
+  motionRefGrid.appendChild(buildMotionRefNoneCard());
+  motionPresets.forEach((preset) => motionRefGrid.appendChild(buildMotionRefCard(preset)));
+  updateMotionRefSelection();
+}
+
+function buildMotionRefNoneCard() {
+  const card = document.createElement("button");
+  card.type = "button";
+  card.className = "motion-ref-card motion-ref-none";
+  card.dataset.presetId = "";
+  card.innerHTML = `<div class="motion-ref-none-inner"><i data-lucide="ban"></i><span>不使用参考</span><small>纯文字生成</small></div>`;
+  card.addEventListener("click", () => selectMotionPreset(""));
+  return card;
+}
+
+function buildMotionRefCard(preset) {
+  const card = document.createElement("div");
+  card.className = "motion-ref-card";
+  card.dataset.presetId = preset.id;
+
+  const thumb = document.createElement("button");
+  thumb.type = "button";
+  thumb.className = "motion-ref-thumb";
+  thumb.setAttribute("aria-label", `播放 ${preset.name} 预览`);
+  if (preset.posterUrl) {
+    // 有封面图:直接用作背景,点击才加载 mp4
+    thumb.style.backgroundImage = `url("${preset.posterUrl}")`;
+    thumb.innerHTML = `<span class="motion-ref-play"><i data-lucide="play"></i></span>`;
+  } else {
+    // 无封面图:用 preload=metadata 的视频显示首帧当封面(#t=0.1 定位首帧),点击才播放
+    const poster = document.createElement("video");
+    poster.src = `${preset.videoUrl}#t=0.1`;
+    poster.preload = "metadata";
+    poster.muted = true;
+    poster.playsInline = true;
+    poster.className = "motion-ref-video";
+    thumb.appendChild(poster);
+    const overlay = document.createElement("span");
+    overlay.className = "motion-ref-play";
+    overlay.innerHTML = `<i data-lucide="play"></i>`;
+    thumb.appendChild(overlay);
+  }
+  thumb.addEventListener("click", () => playMotionPreview(thumb, preset));
+
+  const meta = document.createElement("div");
+  meta.className = "motion-ref-meta";
+  meta.innerHTML = `<div class="motion-ref-name">${preset.name}</div>` +
+    `<div class="motion-ref-sub"><span class="motion-ref-tag">${preset.category || ""}</span>` +
+    `<span class="motion-ref-dur">${preset.durationHint || ""}</span></div>`;
+
+  const useButton = document.createElement("button");
+  useButton.type = "button";
+  useButton.className = "motion-ref-use ghost-button";
+  useButton.textContent = "使用";
+  useButton.addEventListener("click", () => selectMotionPreset(preset.id));
+
+  card.append(thumb, meta, useButton);
+  return card;
+}
+
+// 点击封面:弹出居中大悬浮框播放完整视频(看清角色全貌)
+function playMotionPreview(thumb, preset) {
+  if (!motionLightbox || !motionLightboxVideo) return;
+  if (motionLightboxTitle) motionLightboxTitle.textContent = preset.name || "动作预览";
+  motionLightboxVideo.src = preset.videoUrl;
+  motionLightbox.hidden = false;
+  document.body.classList.add("lightbox-open");
+  motionLightboxVideo.currentTime = 0;
+  motionLightboxVideo.play().catch(() => {});
+}
+
+function closeMotionLightbox() {
+  if (!motionLightbox || motionLightbox.hidden) return;
+  motionLightboxVideo?.pause();
+  if (motionLightboxVideo) motionLightboxVideo.removeAttribute("src"), motionLightboxVideo.load();
+  motionLightbox.hidden = true;
+  document.body.classList.remove("lightbox-open");
+}
+
+function selectMotionPreset(id) {
+  selectedMotionPresetId = id;
+  if (motionPresetIdInput) motionPresetIdInput.value = id;
+  updateMotionRefSelection();
+}
+
+function updateMotionRefSelection() {
+  if (!motionRefGrid) return;
+  motionRefGrid.querySelectorAll(".motion-ref-card").forEach((card) => {
+    card.classList.toggle("is-selected", card.dataset.presetId === selectedMotionPresetId);
+  });
+  if (window.lucide?.createIcons) window.lucide.createIcons();
+}
+
+// 仅 Seedance 支持参考视频;选 MiniMax 时禁用参考库并清空选择
+function syncMotionRefAvailability() {
+  if (!motionRefLibrary) return;
+  const model = videoModel.value === "custom" ? customVideoModel.value.trim() : videoModel.value;
+  const unsupported = isMiniMaxVideoModel(model);
+  motionRefLibrary.classList.toggle("is-disabled", unsupported);
+  if (motionRefModelHint) motionRefModelHint.hidden = !unsupported;
+  if (motionRefGrid) motionRefGrid.toggleAttribute("inert", unsupported);
+  if (unsupported && selectedMotionPresetId) selectMotionPreset("");
+}
+
+
 function applySelectedModel(formData) {
   if (videoModel.value === "custom") {
     const model = customVideoModel.value.trim();
@@ -1367,13 +1402,10 @@ function applySelectedModel(formData) {
 
 function applySelectedImageModel(formData, select) {
   formData.delete("characterImageModel");
-  formData.delete("uiImageModel");
   formData.delete("customCharacterImageModel");
-  formData.delete("uiCustomImageModel");
   if (!select?.value) return;
   if (select.value === "custom") {
-    const input = select === uiImageModel ? uiCustomImageModel : customCharacterImageModel;
-    const model = input?.value?.trim();
+    const model = customCharacterImageModel?.value?.trim();
     if (!model) throw new Error("请填写已开通的自定义图片模型 ID。");
     formData.set("imageModel", model);
   } else {
@@ -1381,79 +1413,26 @@ function applySelectedImageModel(formData, select) {
   }
 }
 
-function schedulePromptPreview() {
-  if (!promptPreview) return;
-  clearTimeout(promptPreviewTimer);
-  promptPreviewTimer = setTimeout(updatePromptPreview, 180);
-}
-
-async function updatePromptPreview() {
-  if (!promptPreview) return;
-  const mode = new FormData(form).get("toolMode") || "character";
-  if (mode !== "motion") return;
-
-  const formData = new FormData(form);
-  formData.delete("finalVideo");
-  formData.delete("characterReference");
-  formData.delete("characterReferences");
-  formData.delete("cutoutImages");
-  if (videoModel.value === "custom" && customVideoModel.value.trim()) {
-    formData.set("videoModel", customVideoModel.value.trim());
-  }
-
-  try {
-    const response = await fetch("/api/prompt-preview", {
-      method: "POST",
-      body: formData
-    });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error || "提示词预览失败");
-    promptPreview.textContent = result.prompt || "还没有动作描述。";
-    promptPreviewMeta.textContent = result.imageRole === "first_frame"
-      ? "当前模型会以参考图作为首帧，并追加视角、背景和游戏素材约束"
-      : "当前模型会以参考图作为参考图，并追加视角、背景和游戏素材约束";
-  } catch (error) {
-    promptPreview.textContent = error.message || String(error);
-    promptPreviewMeta.textContent = "提示词预览暂时不可用";
-  }
-}
-
-function syncRatioForCamera() {
-  const recommended = {
-    side: "16:9",
-    front: "1:1",
-    topdown: "1:1",
-    isometric: "1:1"
-  };
-  videoRatio.value = recommended[cameraView.value] || "16:9";
-}
-
 function syncFramePanels() {
   const workflow = new FormData(form).get("frameWorkflow") || "manual";
+  // 「按总数/按帧率」及其参数只属于自动抽帧,手动选帧时隐藏,避免混淆。
+  // 与是否已上传视频无关,放在最前面统一处理。
+  document.querySelectorAll("[data-workflow-only]").forEach((element) => {
+    setSectionHidden(element, element.dataset.workflowOnly !== workflow);
+  });
   if (!currentVideo) {
     manualPanel.hidden = true;
     autoPanel.hidden = true;
     videoEmptyState.hidden = false;
+    // 没有视频时,序列帧播放器也应保持隐藏(只有截帧/导出后才出现)。
+    // 直接查 DOM 避免引用尚未初始化的 sequenceEl(模块顶层 const 存在 TDZ)。
+    const seqEl = document.querySelector("#sequencePlayer");
+    if (seqEl && !seqEl.querySelector("#sequenceFrame")?.src) seqEl.hidden = true;
     return;
   }
   videoEmptyState.hidden = true;
   manualPanel.hidden = workflow !== "manual";
   autoPanel.hidden = workflow !== "auto";
-}
-
-function renderPresets() {
-  actionPresets.innerHTML = presets.map((preset) => (
-    `<button class="preset-button" type="button" data-preset="${preset.name}">${preset.name}</button>`
-  )).join("");
-  actionPresets.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-preset]");
-    if (!button) return;
-    const preset = presets.find((item) => item.name === button.dataset.preset);
-    if (!preset) return;
-    actionPrompt.value = preset.text;
-    actionPrompt.focus();
-    schedulePromptPreview();
-  });
 }
 
 function resetResultOnly() {
@@ -1865,21 +1844,18 @@ function renderJobLog(job) {
   jobLog.innerHTML = lines.map((line) => `<p>${escapeHtml(line)}</p>`).join("");
 }
 
-function setBusy(isBusy) {
+function setBusy(isBusy, cancellable = false) {
   aiGenerateButton.disabled = isBusy;
   characterGenerateButton.disabled = isBusy;
   cutoutButton.disabled = isBusy;
-  uiBatchButton.disabled = isBusy;
   autoExportButton.disabled = isBusy || !currentVideo;
   manualExportButton.disabled = isBusy || !currentVideo;
   if (cancelTaskButton) {
-    cancelTaskButton.hidden = !isBusy;
-    // 生图是同步接口,没有 jobId 可取消,按钮置灰并加提示
-    const isCancellable = !!currentJobId;
-    cancelTaskButton.disabled = !isCancellable;
-    cancelTaskButton.title = isCancellable
-      ? "停止当前任务"
-      : "生图任务为同步请求,无法中途取消,请等待返回";
+    // 只有异步轮询任务(视频/抠图)才真正可取消;同步接口(生图/抽帧)不显示取消按钮
+    const showCancel = isBusy && cancellable;
+    cancelTaskButton.hidden = !showCancel;
+    cancelTaskButton.disabled = !showCancel;
+    cancelTaskButton.title = "停止当前任务";
   }
   if (isBusy) {
     startTaskTimer();
@@ -2179,13 +2155,12 @@ if (sequenceResetBtn) {
 
 /* ===== 路由:首页 / 工具页切换 ===== */
 
-const VALID_TOOLS = ["character", "cutout", "motion", "frames", "uiBatch"];
+const VALID_TOOLS = ["character", "cutout", "motion", "frames"];
 const TOOL_LABELS = {
   character: "AI 生图",
   cutout: "图片抠图",
   motion: "动作视频",
-  frames: "视频抽帧",
-  uiBatch: "批量 UI 素材"
+  frames: "视频抽帧"
 };
 
 function parseRoute(pathname) {
@@ -2234,18 +2209,14 @@ document.addEventListener("click", (event) => {
   }
 });
 
-// 工具页路由切换时,把 frame-module 从 main.canvas-panel 搬到 inspector-panel 顶部
-// 这样在工具页单栏布局下也能看到分帧工作区 + 序列帧动画
-(function moveFrameModule() {
-  const frameModule = document.querySelector(".frame-module");
-  const inspectorPanel = document.querySelector(".inspector-panel");
-  if (!frameModule || !inspectorPanel) return;
-  // 插入到 inspector-panel 顶部(在 currentResult 之前)
-  const currentResult = inspectorPanel.querySelector("#currentResult");
-  if (currentResult) {
-    inspectorPanel.insertBefore(frameModule, currentResult);
-  } else {
-    inspectorPanel.insertBefore(frameModule, inspectorPanel.firstChild);
+// 工具页两栏工作台:左栏 = inspector-panel(参数,可滚动),
+// 右栏 = canvas-panel(预览 + 分帧 + 历史,sticky 跟随)。
+// #currentResult 原生在参数栏里,属于"输出",搬到右栏 canvas-panel 顶部。
+(function buildToolWorkbench() {
+  const canvasPanel = document.querySelector(".canvas-panel");
+  const currentResult = document.querySelector("#currentResult");
+  if (canvasPanel && currentResult && currentResult.parentElement !== canvasPanel) {
+    canvasPanel.insertBefore(currentResult, canvasPanel.firstChild);
   }
 })();
 
@@ -2294,6 +2265,9 @@ bindRadioToRoute();
 
 // 初始路由应用
 applyRoute(parseRoute(location.pathname));
+
+// 加载动作参考库
+initMotionPresets();
 
 // 关闭当前结果
 document.querySelector("#currentResultClose")?.addEventListener("click", () => {

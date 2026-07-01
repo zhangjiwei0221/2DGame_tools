@@ -20,6 +20,26 @@ const defaultSeedreamModel = "doubao-seedream-5-0-260128";
 const defaultMinimaxImageModel = "image-01";
 const defaultOpenAIImageModel = "gpt-image-2";
 
+// 预设动作参考库:视频托管在火山方舟 TOS(公共读固定 URL)。
+// videoUrl 作为 reference_video 传给 Seedance,是可信白名单;前端只提交 id,后端查表得 URL。
+// posterUrl 可选;留空时前端用视频首帧作封面。新增动作时把 TOS 视频直链填进来即可。
+const MOTION_PRESETS = [
+  {
+    id: "pixel-jump",
+    name: "像素风角色跳跃",
+    category: "移动",
+    videoUrl: "https://2d-game-reference-video.tos-cn-beijing.volces.com/%E7%94%9F%E6%88%90%E5%83%8F%E7%B4%A0%E9%A3%8E%E6%A8%AA%E7%89%882D%E6%B8%B8%E6%88%8F%E8%A7%92%E8%89%B2%E8%B7%B3%E8%B7%83%E5%8A%A8%E4%BD%9C%E8%A7%86%E9%A2%91.mp4",
+    posterUrl: "",
+    durationHint: "横版 · 动作参考"
+  }
+];
+
+function findMotionPreset(id) {
+  const key = String(id || "").trim();
+  if (!key) return null;
+  return MOTION_PRESETS.find((preset) => preset.id === key) || null;
+}
+
 const env = await loadEnv();
 let pythonEnv = { ...env, PYTHONIOENCODING: "utf-8" };
 const port = Number(env.PORT || 5177);
@@ -48,6 +68,9 @@ const server = http.createServer(async (req, res) => {
         seedanceDuration: Number(env.SEEDANCE_DURATION || 5),
         seedanceResolution: env.SEEDANCE_RESOLUTION || "720p"
       });
+    }
+    if (req.method === "GET" && url.pathname === "/api/motion-presets") {
+      return json(res, { presets: MOTION_PRESETS });
     }
     if (req.method === "POST" && url.pathname === "/api/workflows") {
       const body = await readRequestBody(req);
@@ -79,12 +102,6 @@ const server = http.createServer(async (req, res) => {
       const body = await readRequestBody(req);
       const job = createBatchCutoutJob(body);
       runBatchCutoutWorkflow(job).catch((error) => failJob(job.id, error));
-      return json(res, { jobId: job.id });
-    }
-    if (req.method === "POST" && url.pathname === "/api/ui-batch") {
-      const body = await readRequestBody(req);
-      const job = await createUiBatchJob(body);
-      runUiBatchWorkflow(job).catch((error) => failJob(job.id, error));
       return json(res, { jobId: job.id });
     }
     if (req.method === "POST" && url.pathname === "/api/manual-export") {
@@ -260,7 +277,9 @@ function createJob(body) {
       videoDuration: clampInt(fields.videoDuration, clampInt(env.SEEDANCE_DURATION, 5, 4, 15), 4, 15),
       videoRatio: sanitizeRatio(fields.videoRatio || env.SEEDANCE_RATIO || "16:9"),
       videoResolution: sanitizeResolution(fields.videoResolution || env.SEEDANCE_RESOLUTION || "720p"),
-      actionReferenceVideoUrl: sanitizeOptionalUrl(fields.actionReferenceVideoUrl || ""),
+      motionPresetId: findMotionPreset(fields.motionPresetId)?.id || "",
+      // 参考视频 URL 只来自预设库白名单(按 id 查表),不接受前端直传任意 URL,彻底杜绝 SSRF。
+      actionReferenceVideoUrl: findMotionPreset(fields.motionPresetId)?.videoUrl || "",
       characterReference: files.characterReference?.path || null,
       characterReferences: collectFilePaths(files.characterReferences),
       referenceRoles: parseReferenceRoles(fields.referenceRoles),
@@ -296,40 +315,6 @@ function createCutoutJob(body) {
     error: null,
     logs: []
   };
-  jobs.set(id, job);
-  persistJobs().catch(() => {});
-  return job;
-}
-
-async function createUiBatchJob(body) {
-  const id = randomUUID();
-  const fields = body.fields || {};
-  const files = body.files || {};
-  const batchFile = files.uiBatchFile?.path || null;
-  const rows = batchFile ? await parseUiBatchRowsFromFile(batchFile) : parseUiBatchRows(fields.uiBatchText || "");
-  const batchName = sanitizeName(fields.uiBatchName || `ui_batch_${new Date().toISOString().replace(/[-:]/g, "").slice(0, 15).replace("T", "_")}`);
-  const job = {
-    id,
-    status: "queued",
-    step: `已读取 ${rows.length} 个 UI 素材任务`,
-    progress: 0,
-    createdAt: new Date().toISOString(),
-    input: {
-      batchName,
-      globalStyle: fields.uiGlobalStyle || "",
-      imageModel: sanitizeImageModel(fields.imageModel || env.SEEDREAM_MODEL || defaultSeedreamModel),
-      outputFormat: fields.outputFormat === "jpg" ? "jpg" : "png",
-      jpgQuality: clampInt(fields.jpgQuality, 90, 1, 100),
-      backgroundMode: sanitizeBackgroundMode(fields.backgroundMode || env.BACKGROUND_MODE || "u2netp"),
-      cutoutAfterGenerate: parseBool(fields.uiCutoutAfterGenerate, true),
-      negativePrompt: fields.negativePrompt || "",
-      rows
-    },
-    result: null,
-    error: null,
-    logs: []
-  };
-  if (!rows.length) throw new Error("表格里没有可生成的 UI 素材。至少需要一行 prompt。");
   jobs.set(id, job);
   persistJobs().catch(() => {});
   return job;
@@ -398,16 +383,7 @@ async function runWorkflow(job) {
   const result = await processVideo(job, videoPath);
 
   job.result = result;
-  const outDir = path.join(stagingDir, job.input.characterName, job.input.actionName);
-  const archived = await archiveArtifacts({
-    mode: "frames",
-    name: `${job.input.characterName}_${job.input.actionName}`,
-    sourceDir: outDir,
-  });
-  if (archived) {
-    job.result.exportDir = archived.relPath;
-    job.result.exportAbs = archived.absPath;
-  }
+  // 不自动归档:结果留在 staging,用户主动点"保存到本地"才进 exports
   update(job, "complete", "Export complete", 100);
 }
 
@@ -415,16 +391,14 @@ async function createCharacterOnly(body) {
   const job = createJob(body);
   update(job, "running", "Generating character image", 20);
   const characterPath = await generateCharacter(job);
-  const archived = await archiveArtifacts({
-    mode: "character",
-    name: job.input.characterName,
-    sourceDir: path.dirname(characterPath),
-  });
+  // 不自动归档:结果留在 staging,用户主动点"保存到本地"才进 exports
   const result = {
-    image: toPublicPath(characterPath),
-    staging: archived?.relPath || "",
-    exportDir: archived?.relPath || toPublicPath(path.dirname(characterPath)),
-    exportAbs: archived?.absPath || path.dirname(characterPath),
+    image: toStagingPath(characterPath),
+    staging: toStagingPath(path.dirname(characterPath)),
+    exportDir: "",
+    exportAbs: "",
+    characterName: job.input.characterName,
+    actionName: job.input.actionName,
     model: isMock() ? "mock" : job.input.imageModel
   };
   job.result = result;
@@ -433,7 +407,10 @@ async function createCharacterOnly(body) {
 }
 
 async function generateCharacter(job) {
-  const outPath = path.join(dataDir, `${job.id}_character.png`);
+  // 写入独立的 staging 子目录,便于用户主动"保存到本地"时只复制这一张图
+  const outDir = path.join(stagingDir, job.input.characterName, job.input.actionName);
+  await ensureDir(outDir);
+  const outPath = path.join(outDir, `${job.input.characterName}.png`);
 
   if (isMock()) {
     if (job.input.characterReference) {
@@ -694,13 +671,16 @@ async function processVideo(job, videoPath) {
   const manifestPath = path.join(outDir, "manifest.json");
   const manifest = JSON.parse(await fs.readFile(manifestPath, "utf8"));
   return {
-    exportDir: toStagingPath(outDir),
+    exportDir: "",
+    exportAbs: "",
     video: toPublicPath(videoPath),
     videoInfo: await probeVideoInfo(videoPath),
     preview: toStagingPath(path.join(outDir, "preview.png")),
     frames: manifest.frames.map((file) => toStagingPath(path.join(outDir, file))),
     manifest: toStagingPath(manifestPath),
-    staging: toStagingPath(outDir)
+    staging: toStagingPath(outDir),
+    characterName: job.input.characterName,
+    actionName: job.input.actionName
   };
 }
 
@@ -730,20 +710,18 @@ async function exportManualFrames(body) {
   await runPython(args);
   const manifestPath = path.join(outDir, "manifest.json");
   const manifest = JSON.parse(await fs.readFile(manifestPath, "utf8"));
-  const archived = await archiveArtifacts({
-    mode: "frames",
-    name: `${characterName}_${actionName}`,
-    sourceDir: outDir,
-  });
+  // 不自动归档:结果留在 staging,用户主动点"保存到本地"才进 exports
   return {
-    exportDir: archived?.relPath || toStagingPath(outDir),
-    exportAbs: archived?.absPath || outDir,
+    exportDir: "",
+    exportAbs: "",
     video: toPublicPath(videoPath),
     videoInfo: await probeVideoInfo(videoPath),
     preview: toStagingPath(path.join(outDir, "preview.png")),
     frames: manifest.frames.map((file) => toStagingPath(path.join(outDir, file))),
     manifest: toStagingPath(manifestPath),
-    staging: toStagingPath(outDir)
+    staging: toStagingPath(outDir),
+    characterName,
+    actionName
   };
 }
 
@@ -779,13 +757,16 @@ async function exportAutoFrames(body) {
   const manifestPath = path.join(outDir, "manifest.json");
   const manifest = JSON.parse(await fs.readFile(manifestPath, "utf8"));
   return {
-    exportDir: toStagingPath(outDir),
+    exportDir: "",
+    exportAbs: "",
     video: toPublicPath(videoPath),
     videoInfo: await probeVideoInfo(videoPath),
     preview: toStagingPath(path.join(outDir, "preview.png")),
     frames: manifest.frames.map((file) => toStagingPath(path.join(outDir, file))),
     manifest: toStagingPath(manifestPath),
-    staging: toStagingPath(outDir)
+    staging: toStagingPath(outDir),
+    characterName,
+    actionName
   };
 }
 
@@ -840,16 +821,14 @@ async function runCutoutWorkflow(job) {
   const manifestPath = path.join(outDir, "manifest.json");
   const manifest = JSON.parse(await fs.readFile(manifestPath, "utf8"));
   const imagePath = path.join(outDir, manifest.image);
-  const archived = await archiveArtifacts({
-    mode: "cutout",
-    name: assetName,
-    sourceDir: outDir,
-  });
+  // 不自动归档:结果留在 staging,用户主动点"保存到本地"才进 exports
   job.result = {
     image: toStagingPath(imagePath),
     staging: toStagingPath(outDir),
-    exportDir: archived?.relPath || toStagingPath(outDir),
-    exportAbs: archived?.absPath || outDir,
+    exportDir: "",
+    exportAbs: "",
+    characterName: assetName,
+    actionName: assetName,
     manifest: toStagingPath(manifestPath),
     backgroundMode: manifest.background_mode,
     sourceSize: manifest.source_size,
@@ -962,147 +941,17 @@ async function runBatchCutoutWorkflow(job) {
     }, null, 2),
     "utf8"
   );
-  const archived = await archiveArtifacts({
-    mode: "cutout",
-    name: job.input.batchName,
-    sourceDir: outDir,
-  });
+  // 不自动归档:结果留在 staging,用户主动点"保存到本地"才进 exports
   job.result = {
     staging: toStagingPath(outDir),
-    exportDir: archived?.relPath || toStagingPath(outDir),
-    exportAbs: archived?.absPath || outDir,
+    exportDir: "",
+    exportAbs: "",
+    characterName: job.input.batchName,
+    actionName: "batch_cutout",
     manifest: toStagingPath(manifestPath),
     batchResults: results
   };
   update(job, "complete", `批量抠图完成: ${completeCount}/${imagePaths.length}`, 100);
-}
-
-async function runUiBatchWorkflow(job) {
-  const rows = job.input.rows || [];
-  const batchDir = path.join(stagingDir, "ui_batches", job.input.batchName);
-  const generatedDir = path.join(batchDir, "_generated");
-  const cutoutDir = path.join(batchDir, "cutouts");
-  await ensureDir(batchDir);
-  await ensureDir(generatedDir);
-  if (job.input.cutoutAfterGenerate) await ensureDir(cutoutDir);
-  update(job, "running", `准备生成 ${rows.length} 个 UI 素材`, 5);
-
-  const assets = [];
-  for (let index = 0; index < rows.length; index += 1) {
-    const row = rows[index];
-    const progress = Math.round(8 + (index / rows.length) * 84);
-    update(job, "running", `正在生成 ${index + 1}/${rows.length}: ${row.assetName}`, progress);
-    try {
-      const prompt = buildUiAssetPrompt(job.input.globalStyle, row);
-      const generatedName = `${String(index + 1).padStart(3, "0")}_${sanitizeName(row.assetName)}_source.png`;
-      const generatedPath = path.join(generatedDir, generatedName);
-      await generateUiAssetImage(prompt, row.size, generatedPath, row.assetName, job.input.imageModel, job.input.negativePrompt);
-      const ext = job.input.outputFormat === "jpg" ? "jpg" : "png";
-      const fileName = `${String(index + 1).padStart(3, "0")}_${sanitizeName(row.assetName)}.${ext}`;
-      assets.push({
-        status: "complete",
-        assetName: row.assetName,
-        type: row.type,
-        size: row.size,
-        prompt,
-        file: fileName,
-        url: toPublicPath(path.join(job.input.cutoutAfterGenerate ? cutoutDir : generatedDir, job.input.cutoutAfterGenerate ? fileName : generatedName)),
-        generatedFile: `_generated/${generatedName}`,
-        generatedUrl: toPublicPath(generatedPath),
-        cutout: job.input.cutoutAfterGenerate
-      });
-    } catch (error) {
-      assets.push({
-        status: "failed",
-        assetName: row.assetName,
-        type: row.type,
-        size: row.size,
-        prompt: buildUiAssetPrompt(job.input.globalStyle, row),
-        error: error.message || String(error)
-      });
-      job.logs.push(`${row.assetName} failed: ${error.message || error}`);
-    }
-  }
-
-  const manifestPath = path.join(batchDir, "manifest.json");
-  const completeAssets = assets.filter((asset) => asset.status === "complete");
-  if (job.input.cutoutAfterGenerate && completeAssets.length) {
-    update(job, "running", `正在批量抠图 ${completeAssets.length} 张素材`, 92);
-    await cutoutUiBatchAssets(job, batchDir, cutoutDir, completeAssets, manifestPath);
-  }
-  const previewPath = completeAssets.length ? await makeUiBatchPreview(batchDir, completeAssets) : "";
-  await fs.writeFile(manifestPath, JSON.stringify({
-    batchName: job.input.batchName,
-    globalStyle: job.input.globalStyle,
-    imageModel: job.input.imageModel,
-    cutoutAfterGenerate: job.input.cutoutAfterGenerate,
-    backgroundMode: job.input.cutoutAfterGenerate ? job.input.backgroundMode : "none",
-    outputFormat: job.input.cutoutAfterGenerate ? job.input.outputFormat : "png",
-    outputDir: job.input.cutoutAfterGenerate ? "cutouts" : "_generated",
-    sourceDir: "_generated",
-    total: rows.length,
-    complete: completeAssets.length,
-    failed: assets.length - completeAssets.length,
-    assets
-  }, null, 2), "utf8");
-
-  const archived = await archiveArtifacts({
-    mode: "ui-batch",
-    name: job.input.batchName,
-    sourceDir: batchDir,
-  });
-  job.result = {
-    staging: toStagingPath(batchDir),
-    exportDir: archived?.relPath || toStagingPath(batchDir),
-    exportAbs: archived?.absPath || batchDir,
-    preview: previewPath ? toStagingPath(previewPath) : "",
-    manifest: toStagingPath(manifestPath),
-    uiAssets: assets
-  };
-  update(job, completeAssets.length ? "complete" : "failed", `批量 UI 素材完成：${completeAssets.length}/${rows.length}`, 100);
-}
-
-async function cutoutUiBatchAssets(job, batchDir, cutoutDir, assets, manifestPath) {
-  const items = assets.map((asset) => ({
-    assetName: asset.assetName,
-    source: path.join(batchDir, asset.generatedFile),
-    output: asset.file
-  }));
-  await fs.writeFile(manifestPath, JSON.stringify({ items }, null, 2), "utf8");
-  const args = [
-    "scripts/process_image_batch.py",
-    "--manifest", manifestPath,
-    "--out-dir", cutoutDir,
-    "--output-format", job.input.outputFormat,
-    "--jpg-quality", String(job.input.jpgQuality),
-    "--background-mode", job.input.backgroundMode
-  ];
-  if (env.BIREFNET_MODEL) args.push("--birefnet-model", env.BIREFNET_MODEL);
-  if (env.BIREFNET_DEVICE) args.push("--birefnet-device", env.BIREFNET_DEVICE);
-  await runPython(args, (line) => {
-    const progress = parseProgressLine(line);
-    if (progress) update(job, "running", progress.step, Math.max(92, Math.min(progress.percent, 98)));
-  });
-  const cutoutManifest = JSON.parse(await fs.readFile(manifestPath, "utf8"));
-  const byName = new Map((cutoutManifest.items || []).map((item) => [item.assetName, item]));
-  for (const asset of assets) {
-    const item = byName.get(asset.assetName);
-    if (!item) continue;
-    asset.outputSize = item.output_size;
-    asset.sourceSize = item.source_size;
-    asset.backgroundMode = job.input.backgroundMode;
-    asset.cutout = true;
-    asset.file = `cutouts/${item.output}`;
-    asset.url = toPublicPath(path.join(cutoutDir, item.output));
-  }
-}
-
-async function generateUiAssetImage(prompt, size, outPath, assetName, imageModel, negativePrompt = "") {
-  if (isMock()) {
-    await runPython(["scripts/generate_mock_assets.py", "character", "--out", outPath, "--name", assetName]);
-    return;
-  }
-  await generateImageAsset({ prompt, size, outPath, imageModel, negativePrompt });
 }
 
 async function generateImageAsset({ prompt, size, outPath, imageModel, negativePrompt = "", references = [], referenceImage = "" }) {
@@ -1202,42 +1051,6 @@ async function generateMinimaxImage(prompt, size, outPath, imageModel, negativeP
   }
   const base64 = image.includes(",") ? image.split(",").pop() : image;
   await writeImageBytesAsPng(Buffer.from(base64, "base64"), outPath);
-}
-
-async function makeUiBatchPreview(batchDir, assets) {
-  const previewPath = path.join(batchDir, "preview.png");
-  const previewDataPath = path.join(tmpDir, `ui_preview_${randomUUID()}.json`);
-  await fs.writeFile(previewDataPath, JSON.stringify(assets.map((asset) => ({
-    file: asset.file,
-    assetName: asset.assetName
-  }))), "utf8");
-  const script = `
-from PIL import Image, ImageDraw
-from pathlib import Path
-import sys, json
-batch = Path(sys.argv[1])
-assets = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
-thumbs = []
-for asset in assets[:12]:
-    img = Image.open(batch / asset["file"]).convert("RGBA")
-    img.thumbnail((160, 160), Image.Resampling.LANCZOS)
-    tile = Image.new("RGBA", (180, 202), (248, 250, 252, 255))
-    tile.alpha_composite(img, ((180 - img.width)//2, 8))
-    ImageDraw.Draw(tile).text((8, 176), asset["assetName"][:22], fill=(30, 41, 59, 255))
-    thumbs.append(tile)
-cols = min(4, max(1, len(thumbs)))
-rows = (len(thumbs) + cols - 1) // cols
-sheet = Image.new("RGBA", (cols * 180, rows * 202), (226, 232, 240, 255))
-for i, tile in enumerate(thumbs):
-    sheet.alpha_composite(tile, ((i % cols) * 180, (i // cols) * 202))
-sheet.save(sys.argv[3])
-`;
-  try {
-    await runPythonWithOutput(["-c", script, batchDir, previewDataPath, previewPath]);
-  } finally {
-    await fs.rm(previewDataPath, { force: true }).catch(() => {});
-  }
-  return previewPath;
 }
 
 async function arkFetch(endpoint, payload) {
@@ -1956,17 +1769,6 @@ function extractMinimaxImage(data) {
   return "";
 }
 
-function sanitizeOptionalUrl(value) {
-  const url = String(value || "").trim();
-  if (!url) return "";
-  try {
-    const parsed = new URL(url);
-    return ["http:", "https:"].includes(parsed.protocol) ? url : "";
-  } catch {
-    return "";
-  }
-}
-
 function sanitizeCameraView(value) {
   const allowed = new Set(["side", "front", "topdown", "isometric"]);
   return allowed.has(value) ? value : "side";
@@ -2008,7 +1810,7 @@ function createPromptPreview(body) {
     cameraView: sanitizeCameraView(fields.cameraView || "side"),
     videoModel
   };
-  const hasActionReferenceVideo = Boolean(sanitizeOptionalUrl(fields.actionReferenceVideoUrl || ""));
+  const hasActionReferenceVideo = Boolean(findMotionPreset(fields.motionPresetId));
   return {
     prompt: buildVideoPrompt(input, hasActionReferenceVideo),
     cameraView: input.cameraView,
@@ -2016,113 +1818,6 @@ function createPromptPreview(body) {
     imageRole: isMinimaxVideoModel(videoModel) ? "first_frame_image" : getSeedanceImageRole(videoModel),
     hasActionReferenceVideo
   };
-}
-
-async function parseUiBatchRowsFromFile(filePath) {
-  const ext = path.extname(filePath).toLowerCase();
-  if (ext === ".xlsx") {
-    const tableText = await runPythonWithOutput(["scripts/read_xlsx_rows.py", filePath]);
-    return parseUiBatchRows(tableText);
-  }
-  if (ext === ".xls") {
-    throw new Error("暂不支持旧版 .xls，请在 Excel/WPS 中另存为 .xlsx 后再上传。");
-  }
-  return parseUiBatchRows(readFileSync(filePath, "utf8"));
-}
-
-function parseUiBatchRows(text) {
-  const normalized = String(text || "").replace(/^\uFEFF/, "").trim();
-  if (!normalized) return [];
-  const lines = normalized.split(/\r?\n/).filter((line) => line.trim());
-  if (!lines.length) return [];
-  const delimiter = lines[0].includes("\t") ? "\t" : ",";
-  const first = parseDelimitedLine(lines[0], delimiter).map((cell) => cell.trim());
-  const knownHeaders = ["asset_name", "name", "prompt", "type", "size", "count", "transparent", "名称", "名字", "素材名", "类型", "提示词", "描述", "尺寸", "数量", "透明背景"];
-  const headerLike = first.some((cell) => knownHeaders.includes(cell.toLowerCase()) || knownHeaders.includes(cell));
-  const headers = headerLike ? first.map(normalizeUiBatchHeader) : ["asset_name", "type", "prompt", "size", "count", "transparent"];
-  const bodyLines = headerLike ? lines.slice(1) : lines;
-  const rows = [];
-  for (const [index, line] of bodyLines.entries()) {
-    const cells = parseDelimitedLine(line, delimiter);
-    const record = {};
-    headers.forEach((header, cellIndex) => {
-      record[header] = cells[cellIndex]?.trim() || "";
-    });
-    const prompt = record.prompt || record["提示词"] || record.description || record.desc || "";
-    if (!prompt) continue;
-    const assetName = record.asset_name || record.name || record["名称"] || `ui_asset_${index + 1}`;
-    const count = clampInt(record.count || record["数量"], 1, 1, 20);
-    for (let copy = 0; copy < count; copy += 1) {
-      rows.push({
-        assetName: count > 1 ? `${assetName}_${copy + 1}` : assetName,
-        type: record.type || record["类型"] || "ui",
-        prompt,
-        size: sanitizeImageSize(record.size || record["尺寸"] || "1024x1024"),
-        transparent: parseBool(record.transparent || record["透明背景"], true)
-      });
-    }
-  }
-  return rows.slice(0, 80);
-}
-
-function normalizeUiBatchHeader(header) {
-  const normalized = String(header || "").trim().toLowerCase();
-  const aliases = {
-    "名称": "asset_name",
-    "名字": "asset_name",
-    "素材名": "asset_name",
-    "类型": "type",
-    "提示词": "prompt",
-    "描述": "prompt",
-    "尺寸": "size",
-    "数量": "count",
-    "透明背景": "transparent"
-  };
-  return aliases[normalized] || normalized;
-}
-
-function parseDelimitedLine(line, delimiter) {
-  const cells = [];
-  let current = "";
-  let quoted = false;
-  for (let index = 0; index < line.length; index += 1) {
-    const char = line[index];
-    if (char === '"') {
-      if (quoted && line[index + 1] === '"') {
-        current += '"';
-        index += 1;
-      } else {
-        quoted = !quoted;
-      }
-      continue;
-    }
-    if (char === delimiter && !quoted) {
-      cells.push(current);
-      current = "";
-      continue;
-    }
-    current += char;
-  }
-  cells.push(current);
-  return cells;
-}
-
-function buildUiAssetPrompt(globalStyle, row) {
-  const typeHints = {
-    icon: "单个游戏 UI 图标，主体居中，轮廓清晰，适合小尺寸识别。",
-    button: "游戏 UI 按钮素材，边框清晰，有可点击的层次感，不要真实文字。",
-    panel: "游戏 UI 面板素材，边缘和装饰清晰，中心区域可留空，不要真实文字。",
-    item: "游戏道具 UI 素材，主体完整，适合背包或商店图标。",
-    badge: "徽章或成就图标，形状完整，适合 UI 奖励展示。"
-  };
-  const typeKey = String(row.type || "ui").toLowerCase();
-  return [
-    globalStyle,
-    row.prompt,
-    typeHints[typeKey] || "2D 游戏 UI 素材，主体明确，干净可读。",
-    row.transparent ? "透明背景或纯净可抠图背景。" : "",
-    "不要出现真实文字、乱码文字、水印、Logo、复杂场景或人物。高清 2D 游戏美术资源。"
-  ].filter(Boolean).join(" ");
 }
 
 function getSeedanceImageRole(model) {
@@ -2210,24 +1905,6 @@ function toPublicPath(absolutePath) {
   return `/files/${path.relative(rootDir, absolutePath).replaceAll("\\", "/")}`;
 }
 
-// 任务完成后,把 staging 产物自动归档到统一的 exports/<mode>/<name>/<时间戳>/ 目录
-// 返回磁盘路径(相对于 rootDir)和归档后的资源列表
-async function archiveArtifacts({ mode, name, sourceDir, subPath = "" }) {
-  if (!sourceDir || !existsSync(sourceDir)) return null;
-  const safeMode = sanitizeName(mode || "asset");
-  const safeName = sanitizeName(name || "asset");
-  const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-  const dest = path.join(exportDir, safeMode, safeName, stamp);
-  await ensureDir(dest);
-  const targetDir = subPath ? path.join(dest, subPath) : dest;
-  await ensureDir(targetDir);
-  await copyDirRecursive(sourceDir, targetDir);
-  return {
-    absPath: dest,
-    relPath: path.relative(rootDir, dest).replaceAll("\\", "/"),
-  };
-}
-
 // 把绝对路径限定在 rootDir/exportDir 下,防路径穿越
 function safeExportPath(publicPath) {
   if (!publicPath) return null;
@@ -2260,7 +1937,12 @@ async function moveStagingToExport(body) {
   const dest = path.join(exportDir, characterName, actionName);
   await ensureDir(dest);
   await copyDirRecursive(staging, dest);
-  return { exportDir: toPublicPath(dest), zip: `/api/download-zip?dir=${encodeURIComponent(toPublicPath(dest))}` };
+  return {
+    exportDir: toPublicPath(dest),
+    exportAbs: dest,
+    exportRel: path.relative(rootDir, dest).replaceAll("\\", "/"),
+    zip: `/api/download-zip?dir=${encodeURIComponent(toPublicPath(dest))}`
+  };
 }
 
 async function copyDirRecursive(src, dest) {

@@ -84,6 +84,9 @@ tsinghua_torch.html
 hf_pt.html
 pytorch_root.html
 playwright-mcp/
+.playwright-mcp/
+motion-final.jpeg
+motion-fixed.jpeg
 .claude/
 __pycache__/
 *.log

@@ -85,7 +85,7 @@ body {
   background: var(--app-bg);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  letter-spacing: -0.01em;
+  letter-spacing: 0; /* 中文界面不收紧字距,避免显得拥挤 */
 }
 
 button,
@@ -132,7 +132,7 @@ button {
   cursor: pointer;
   transition: border-color 120ms ease, background 120ms ease, box-shadow 120ms ease, transform 100ms ease;
   white-space: nowrap;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
   box-shadow: var(--shadow-xs);
 }
 
@@ -738,11 +738,13 @@ svg.mode-card-icon {
 .ai-module {
   display: grid;
   gap: 16px;
-  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   grid-template-areas:
-    "title title title"
-    "presets presets presets"
-    "param1 param2 param3";
+    "title"
+    "presets"
+    "param1"
+    "param2"
+    "param3";
   align-items: start;
 }
 
@@ -759,16 +761,16 @@ svg.mode-card-icon {
 .ai-module > .param-group:nth-of-type(2) { grid-area: param2; }
 .ai-module > .param-group:nth-of-type(3) { grid-area: param3; }
 
-/* motion 特有内容(动作描述/帧率/分辨率等)在 ai-module 底部占满整行 */
+/* motion 特有内容(动作描述/秒数/模型/分辨率等)单栏堆叠;
+   成对项(视频比例/分辨率)由内部 .settings-grid 自己排两列 */
 .ai-module > .motion-extra {
   grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
-  gap: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
 .ai-module > .motion-extra > .section-title {
-  grid-column: 1 / -1;
   margin-top: 8px;
 }
 
@@ -782,11 +784,13 @@ svg.mode-card-icon {
 
 @media (max-width: 1200px) {
   .ai-module {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
     grid-template-areas:
-      "title title"
-      "presets presets"
-      "params params";
+      "title"
+      "presets"
+      "param1"
+      "param2"
+      "param3";
   }
 }
 
@@ -1985,6 +1989,23 @@ select:disabled {
   word-break: break-all;
 }
 
+.export-hint {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  color: var(--muted, #64748b);
+}
+
+.link-button.save-staging {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
+.link-button.save-staging:hover {
+  filter: brightness(1.05);
+}
+
 .frame-workspace {
   padding: 24px;
 }
@@ -2409,11 +2430,19 @@ select:disabled {
   .manual-actions {
     display: grid;
   }
+
+  /* 移动端长表单:把主操作按钮吸附在底部,始终可点 */
+  body[data-page="tool"] .primary-action.full-width {
+    position: sticky;
+    bottom: 8px;
+    z-index: 20;
+    box-shadow: var(--shadow-md, 0 6px 20px rgba(0, 0, 0, 0.18));
+  }
 }
 
 /* ===== 路由相关布局 ===== */
 
-/* 工具页:hero 隐藏,画布隐藏,参数面板变居中单栏 */
+/* 工具页:hero 隐藏,侧边栏隐藏,studio-shell 变两栏工作台 */
 body[data-page="tool"] .hero-panel {
   display: none;
 }
@@ -2422,32 +2451,122 @@ body[data-page="tool"] .workflow-sidebar {
   display: none;
 }
 
+/* 两栏:左 = 参数(可滚动),右 = 预览+分帧+历史(sticky 跟随) */
 body[data-page="tool"] .studio-shell {
-  display: block;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 460px);
+  align-items: start;
+  gap: 28px;
   width: 100%;
-  max-width: none;
-  margin: 0;
+  max-width: 1240px;
+  margin: 0 auto;
   padding: 24px 32px 60px;
   background: transparent;
   min-height: auto;
 }
 
-body[data-page="tool"] .canvas-panel {
-  display: none;
-}
-
+/* 左栏:参数 */
 body[data-page="tool"] .inspector-panel {
+  grid-column: 1;
+  grid-row: 1;
   position: static;
   max-width: none;
   width: 100%;
+  margin: 0;
   padding: 0;
   border: none;
   background: transparent;
   overflow: visible;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 body[data-page="tool"] .inspector-head {
   display: none;
+}
+
+body[data-page="tool"] .inspector-panel > .inspector-section {
+  margin: 0;
+}
+
+/* 窄左栏里,标题与副标题竖排(副标题作为下方小字),避免副标题被推到最右形成大空隙 */
+body[data-page="tool"] .inspector-panel .section-title,
+body[data-page="tool"] .inspector-panel .mini-head {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+body[data-page="tool"] .inspector-panel .section-title > span,
+body[data-page="tool"] .inspector-panel .mini-head > span {
+  font-size: 12px;
+  color: var(--muted, #64748b);
+}
+
+/* 右栏:输出(预览 + 分帧 + 历史),sticky 跟随,不随左栏滚走 */
+body[data-page="tool"] .canvas-panel {
+  grid-column: 2;
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: sticky;
+  top: 16px;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+
+body[data-page="tool"] .canvas-panel > #currentResult {
+  order: -1;
+}
+
+body[data-page="tool"] .canvas-panel .canvas-head {
+  display: none;
+}
+
+/* 右栏空间有限:预览高度收敛,状态条紧凑,历史缩略图更小 */
+body[data-page="tool"] .canvas-panel .preview {
+  min-height: 280px;
+}
+
+/* 右栏的 asset-board 不用旧大画布的 grid 行模板(会留空行),
+   改成 flex 纵向堆叠,高度随内容,消除预览与历史之间的大空白 */
+body[data-page="tool"] .canvas-panel .asset-board {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* 工具页窄屏(≤1024px)回退单栏:参数在上、输出在下,右栏取消 sticky */
+@media (max-width: 1024px) {
+  body[data-page="tool"] .studio-shell {
+    grid-template-columns: 1fr;
+    max-width: 720px;
+    gap: 20px;
+  }
+
+  body[data-page="tool"] .inspector-panel {
+    grid-column: 1;
+    grid-row: 1;
+    order: 1;
+  }
+
+  body[data-page="tool"] .canvas-panel {
+    grid-column: 1;
+    grid-row: 2;
+    order: 2;
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
 }
 
 /* 首页:hero 显示 + 工具卡片网格显示 + studio-shell 不显示 */
@@ -3092,11 +3211,11 @@ body[data-page="home"] .studio-shell {
 
 .tool-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
   margin-top: 24px;
   width: 100%;
-  max-width: 1200px;
+  max-width: 560px;
 }
 
 .tool-card {
@@ -3187,12 +3306,6 @@ body[data-page="home"] .studio-shell {
   transform: translateX(2px);
 }
 
-@media (max-width: 1024px) {
-  .tool-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
 @media (max-width: 640px) {
   .tool-grid {
     grid-template-columns: minmax(0, 1fr);
@@ -3200,4 +3313,226 @@ body[data-page="home"] .studio-shell {
   .tool-switcher {
     margin-right: 8px;
   }
+}
+
+/* ---- 动作参考库 ---- */
+.motion-ref-library {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.motion-ref-library.is-disabled {
+  opacity: 0.55;
+}
+
+.motion-ref-hint {
+  margin: 0;
+  padding: 8px 10px;
+  font-size: 12px;
+  color: var(--warning);
+  background: var(--warning-soft);
+  border: 1px solid var(--warning-border);
+  border-radius: var(--radius);
+}
+
+.motion-ref-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.motion-ref-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xs);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.motion-ref-card.is-selected {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-ring);
+}
+
+.motion-ref-thumb {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: none;
+  border-radius: var(--radius);
+  background-color: var(--surface-sunk);
+  background-size: cover;
+  background-position: center;
+  cursor: pointer;
+  overflow: hidden;
+  padding: 0;
+}
+
+.motion-ref-play {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: rgba(15, 23, 42, 0.28);
+  transition: background 0.15s ease;
+}
+
+.motion-ref-thumb:hover .motion-ref-play {
+  background: rgba(15, 23, 42, 0.42);
+}
+
+.motion-ref-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.motion-ref-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.motion-ref-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.motion-ref-sub {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--ink-3);
+}
+
+.motion-ref-tag {
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-tint);
+  color: var(--accent-ink);
+}
+
+.motion-ref-use {
+  width: 100%;
+  justify-content: center;
+}
+
+.motion-ref-card.is-selected .motion-ref-use {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.motion-ref-none {
+  border-style: dashed;
+  cursor: pointer;
+  align-items: stretch;
+}
+
+.motion-ref-none-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 100%;
+  min-height: 96px;
+  color: var(--ink-3);
+  font-size: 12px;
+}
+
+.motion-ref-none-inner small {
+  font-size: 11px;
+  color: var(--ink-muted);
+}
+
+/* ---- 动作预览悬浮框(lightbox) ---- */
+body.lightbox-open {
+  overflow: hidden;
+}
+
+.video-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.video-lightbox-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(4px);
+}
+
+.video-lightbox-card {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(720px, 100%);
+  max-height: calc(100vh - 48px);
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+}
+
+.video-lightbox-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.video-lightbox-head strong {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.video-lightbox-close {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-soft);
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+.video-lightbox-close:hover {
+  background: var(--surface-sunk);
+  color: var(--ink);
+}
+
+.video-lightbox-body {
+  display: grid;
+  place-items: center;
+  min-height: 0;
+  background: var(--surface-sunk);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.video-lightbox-body video {
+  max-width: 100%;
+  max-height: calc(100vh - 160px);
+  display: block;
 }

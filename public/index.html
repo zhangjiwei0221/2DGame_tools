@@ -48,10 +48,6 @@
             <i data-lucide="film"></i>
             <span><b>视频抽帧</b><small>上传最终视频，手动或自动导出序列帧。</small></span>
           </a>
-          <a class="tool-switcher-item" role="menuitem" data-tool="uiBatch" href="/tools/uiBatch">
-            <i data-lucide="layout-grid"></i>
-            <span><b>批量 UI 素材</b><small>上传提示词表格，按行生成图标、按钮和面板。</small></span>
-          </a>
         </div>
       </nav>
 
@@ -118,12 +114,6 @@
           <small>上传最终视频，手动或自动导出序列帧。</small>
           <span class="tool-card-cta">进入工具 <i data-lucide="arrow-right"></i></span>
         </a>
-        <a class="tool-card" href="/tools/uiBatch">
-          <span class="tool-card-icon" style="background:#dbeafe;color:#2563eb;"><i data-lucide="layout-grid"></i></span>
-          <b>批量 UI 素材</b>
-          <small>上传提示词表格，按行生成图标、按钮和面板。</small>
-          <span class="tool-card-cta">进入工具 <i data-lucide="arrow-right"></i></span>
-        </a>
       </nav>
     </section>
 
@@ -168,14 +158,6 @@
               <i class="mode-card-icon" data-lucide="film"></i>
               <b>视频抽帧</b>
               <small>上传最终视频，手动或自动导出序列帧。</small>
-            </span>
-          </label>
-          <label class="mode-card">
-            <input type="radio" name="toolMode" value="uiBatch" />
-            <span>
-              <i class="mode-card-icon" data-lucide="layout-grid"></i>
-              <b>批量 UI 素材</b>
-              <small>上传提示词表格，按行生成图标、按钮和面板。</small>
             </span>
           </label>
         </div>
@@ -224,25 +206,8 @@
                   <circle cx="76" cy="48" r="1" fill="currentColor"/>
                 </g>
               </svg>
-              <strong>开始你的第一个素材</strong>
-              <p>上传参考图、填写描述，或从下方快速开始</p>
-              <div class="empty-templates">
-                <button class="empty-template" type="button" data-template="rpg">
-                  <i data-lucide="swords"></i>
-                  <span>森林 RPG 角色</span>
-                  <small>生图 · RPG 角色预设</small>
-                </button>
-                <button class="empty-template" type="button" data-template="scene">
-                  <i data-lucide="mountain"></i>
-                  <span>横版场景背景</span>
-                  <small>生图 · 场景背景预设</small>
-                </button>
-                <button class="empty-template" type="button" data-template="cutout">
-                  <i data-lucide="scissors"></i>
-                  <span>批量抠图素材</span>
-                  <small>本地抠图 · 离线运行</small>
-                </button>
-              </div>
+              <strong>结果预览</strong>
+              <p>生成或处理完成后，结果会显示在这里。</p>
             </div>
           </div>
 
@@ -252,7 +217,7 @@
         <section class="history-gallery" aria-label="最近生成">
           <div class="mini-head">
             <strong>最近生成</strong>
-            <span>点击缩略图可在上方画布查看大图</span>
+            <span>点击缩略图可在预览区查看大图</span>
           </div>
           <div id="historyGallery" class="gallery-grid"></div>
         </section>
@@ -301,7 +266,7 @@
             <button type="button" id="autoExportButton" class="primary-action">自动抽帧并导出</button>
           </section>
 
-          <section id="sequencePlayer" class="sequence-player" data-mode-only="motion,frames" hidden>
+          <section id="sequencePlayer" class="sequence-player" hidden>
             <div class="mini-head">
               <strong>序列帧动画预览</strong>
               <span id="sequenceHint">分帧完成后这里会出现播放器，可调整帧间距。</span>
@@ -394,67 +359,6 @@
             <input type="file" name="finalVideo" id="finalVideo" accept="video/mp4,video/webm,video/quicktime" />
             <small>上传成功后，中间区域将显示播放器和抽帧工具。</small>
           </label>
-          <p class="tip">如果这个视频是动作参考，想让 AI 学习其中的动作，请切换到"动作视频"模式，将公网 URL 填入动作参考。</p>
-        </section>
-
-        <section class="inspector-section ui-batch-module" data-mode-only="uiBatch">
-          <div class="section-title">
-            <strong>批量 UI 素材</strong>
-            <span>Excel / CSV 表格</span>
-          </div>
-          <label>
-            <span>批次名称</span>
-            <input name="uiBatchName" placeholder="例如：fantasy_ui_pack_01" />
-          </label>
-          <label>
-            <span>全局风格</span>
-            <textarea name="uiGlobalStyle" rows="4" placeholder="例：暗黑幻想 RPG UI，暗金边框，蓝紫魔法光效，透明背景，高清 2D 游戏图标。"></textarea>
-          </label>
-          <label>
-            <span>图片模型</span>
-            <select name="uiImageModel">
-              <option value="doubao-seedream-5-0-260128" selected>Doubao-Seedream-5.0</option>
-              <option value="doubao-seedream-5-0-lite-260128">Doubao-Seedream-5.0-lite</option>
-              <option value="doubao-seedream-4-5-251128">Doubao-Seedream-4.5</option>
-              <option value="doubao-seedream-4-0-250828">Doubao-Seedream-4.0</option>
-              <option value="doubao-seedream-3-0-t2i-250415">Doubao-Seedream-3.0（旧模型，需确认已开通）</option>
-              <option value="openai:gpt-image-2">OpenAI GPT Image 2（快速出图）</option>
-              <option value="openai:gpt-image-1">OpenAI GPT Image 1</option>
-              <option value="minimax:image-01">MiniMax Image-01</option>
-              <option value="custom">自定义模型 ID</option>
-            </select>
-            <small>每行素材均使用此模型进行生图。</small>
-          </label>
-          <label id="customUiImageModelField" hidden>
-            <span>自定义图片模型 ID</span>
-            <input name="uiCustomImageModel" placeholder="例如：doubao-seedream-5-0-260128" />
-            <small>填写已开通的 Seedream 图片模型 ID。</small>
-          </label>
-
-          <label>
-            <span>负面提示词</span>
-            <textarea name="negativePrompt" rows="2" placeholder="不想出现的元素，用逗号分隔。例如：模糊，畸形，低画质，真实文字，复杂背景，写实照片"></textarea>
-            <small>应用于批次的每一行，描述不希望 AI 生成的视觉元素。</small>
-          </label>
-
-          <label class="drop-card primary-drop">
-            <span>上传提示词表格</span>
-            <input type="file" name="uiBatchFile" id="uiBatchFile" accept=".xlsx,.csv,.tsv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,text/tab-separated-values" />
-            <small>支持 .xlsx / CSV / TSV 格式，建议先用少量行测试风格。</small>
-          </label>
-          <label>
-            <span>或直接粘贴 CSV</span>
-            <textarea name="uiBatchText" id="uiBatchText" rows="7" placeholder="asset_name,type,prompt,size,count,transparent&#10;start_button,button,开始游戏按钮，金属边框，蓝色宝石高光,1024x1024,1,true&#10;coin_icon,icon,金币图标，圆形，高亮，适合手游 UI,1024x1024,1,true"></textarea>
-          </label>
-          <label class="toggle-row">
-            <input type="checkbox" name="uiCutoutAfterGenerate" value="true" checked />
-            <span>
-              <strong>生成后自动批量抠图</strong>
-              <small>开启后输出透明 PNG/JPG，原始生成图保留在本地。</small>
-            </span>
-          </label>
-          <button type="button" id="uiBatchButton" class="primary-action full-width">开始批量生成 UI 素材</button>
-          <p class="tip">提示：真实 API 模式下每一行都会产生一次生图调用。抠图方式使用底部"导出设置"，建议先用 2-3 行小表测试风格。</p>
         </section>
 
         <section class="inspector-section cutout-module" data-mode-only="cutout">
@@ -492,8 +396,6 @@
             <span data-mode-only="character">用于生成图片素材</span>
           </div>
 
-          <div id="characterPresets" class="preset-grid" data-mode-only="character" aria-label="预设提示词"></div>
-
           <details class="param-group" data-default-open="character">
             <summary>
               <i data-lucide="image"></i>
@@ -528,6 +430,11 @@
                   </select>
                 </label>
               </div>
+              <label data-mode-only="character">
+                <span>负面提示词</span>
+                <textarea name="negativePrompt" rows="2" placeholder="不想出现的元素，用逗号分隔。例如：模糊，畸形手指，多余肢体，丑陋，低画质，黑白，写实照片"></textarea>
+                <small>不希望出现的元素，作为主体描述的反向约束。Seedream 原生作为 negative_prompt 发送，其他模型拼入 avoid 从句。</small>
+              </label>
             </div>
           </details>
 
@@ -561,21 +468,6 @@
             </div>
           </details>
 
-          <details class="param-group" open>
-            <summary>
-              <i data-lucide="palette"></i>
-              <span>风格</span>
-              <small>负面提示词</small>
-            </summary>
-            <div class="param-group-body">
-              <label data-mode-only="character,motion">
-                <span>负面提示词</span>
-                <textarea name="negativePrompt" rows="2" placeholder="不想出现的元素，用逗号分隔。例如：模糊，畸形手指，多余肢体，丑陋，低画质，黑白，写实照片"></textarea>
-                <small>Seedream 原生作为 negative_prompt 发送，其他模型拼入正面提示词的 avoid 从句。</small>
-              </label>
-            </div>
-          </details>
-
           <div class="tool-actions" data-mode-only="character">
             <button type="button" id="characterGenerateButton" class="primary-action">生成图片</button>
             <button type="button" id="goMotionFromCharacterButton">用这张图生成动作视频</button>
@@ -584,7 +476,7 @@
           <div data-motion-only class="motion-extra">
             <div class="section-title compact">
               <strong>动作输入</strong>
-              <span>描述动作，或提供公网参考视频 URL</span>
+              <span>描述你想要的动作</span>
             </div>
 
             <label>
@@ -592,50 +484,27 @@
               <textarea name="actionPrompt" rows="6" placeholder="例：俯视角 RPG 角色向右跑步，动作可循环，脚步清晰，身体重心稳定，不要镜头移动，主体完整入镜。"></textarea>
             </label>
 
-            <details class="prompt-preview-card" open>
-              <summary>
-                <strong>最终提示词预览</strong>
-                <span id="promptPreviewMeta">会自动拼入视角、图片一致性和背景约束</span>
-              </summary>
-              <pre id="promptPreview">填写动作描述或切换视角后，这里会显示实际提交给模型的完整提示词。</pre>
-            </details>
-
-            <section class="preset-block">
-              <div class="mini-head">
-                <strong>典型动作提示词</strong>
-                <span>点击后填入动作描述</span>
+            <div class="motion-ref-library" id="motionRefLibrary">
+              <div class="section-title compact">
+                <strong>动作参考库</strong>
+                <span>选一个动作作为运动参考，只借节奏姿态，角色仍以参考图为准</span>
               </div>
-              <div class="preset-grid" id="actionPresets"></div>
-            </section>
+              <p class="motion-ref-hint" id="motionRefModelHint" hidden>当前模型不支持参考视频，请切换到 Seedance 模型后使用。</p>
+              <div class="motion-ref-grid" id="motionRefGrid" aria-live="polite"></div>
+              <input type="hidden" name="motionPresetId" id="motionPresetId" value="" />
+            </div>
 
             <label>
-              <span>动作参考视频 URL</span>
-              <input name="actionReferenceVideoUrl" placeholder="https://example.com/reference-action.mp4" />
-              <small>必须是公网可访问的视频 URL，建议 mp4 格式。</small>
+              <span>视频秒数</span>
+              <select name="videoDuration">
+                <option value="4">4 秒</option>
+                <option value="5" selected>5 秒</option>
+                <option value="6">6 秒</option>
+                <option value="8">8 秒</option>
+                <option value="10">10 秒</option>
+                <option value="15">15 秒</option>
+              </select>
             </label>
-
-            <div class="settings-grid">
-              <label>
-                <span>视角/游戏类型</span>
-                <select name="cameraView" id="cameraView">
-                  <option value="side" selected>横版侧面视角</option>
-                  <option value="front">正面视角</option>
-                  <option value="topdown">俯视角 RPG</option>
-                  <option value="isometric">等距 3/4 视角</option>
-                </select>
-              </label>
-              <label>
-                <span>视频秒数</span>
-                <select name="videoDuration">
-                  <option value="4">4 秒</option>
-                  <option value="5" selected>5 秒</option>
-                  <option value="6">6 秒</option>
-                  <option value="8">8 秒</option>
-                  <option value="10">10 秒</option>
-                  <option value="15">15 秒</option>
-                </select>
-              </label>
-            </div>
 
             <label data-motion-only>
               <span>负面提示词</span>
@@ -686,14 +555,6 @@
               </label>
             </div>
 
-            <label>
-              <span>官方输出帧率</span>
-              <select name="videoFps" id="videoFps" disabled>
-                <option value="">固定约 24fps</option>
-              </select>
-              <small>当前 API 帧率约为 24fps，可优先调整模型和分辨率优化生成效果。</small>
-            </label>
-
             <section class="cost-panel">
               <div class="mini-head">
                 <strong>规格提示</strong>
@@ -710,11 +571,11 @@
           </div>
         </section>
 
-        <section class="inspector-section frame-settings" data-mode-only="cutout,motion,frames,uiBatch">
+        <section class="inspector-section frame-settings" data-mode-only="cutout,motion,frames">
           <div class="section-title">
-            <strong><span data-mode-only="motion,frames">分帧设置</span><span data-mode-only="cutout">抠图设置</span><span data-mode-only="uiBatch">批量设置</span></strong>
+            <strong><span data-mode-only="motion,frames">分帧设置</span><span data-mode-only="cutout">抠图设置</span></strong>
             <span data-mode-only="motion,frames">手动/自动抽帧和时间范围</span>
-            <span data-mode-only="cutout,uiBatch">输出格式、抠图方式与质量</span>
+            <span data-mode-only="cutout">输出格式、抠图方式与质量</span>
           </div>
 
           <div data-mode-only="motion,frames">
@@ -729,34 +590,36 @@
               </label>
             </div>
 
-            <div class="segmented compact-tabs" role="group" aria-label="auto extract mode">
-              <label>
-                <input type="radio" name="extractMode" value="count" checked />
-                <span>按总数</span>
-              </label>
-              <label>
-                <input type="radio" name="extractMode" value="fps" />
-                <span>按帧率</span>
-              </label>
-            </div>
+            <div id="autoExtractConfig" data-workflow-only="auto">
+              <div class="segmented compact-tabs" role="group" aria-label="auto extract mode">
+                <label>
+                  <input type="radio" name="extractMode" value="count" checked />
+                  <span>按总数</span>
+                </label>
+                <label>
+                  <input type="radio" name="extractMode" value="fps" />
+                  <span>按帧率</span>
+                </label>
+              </div>
 
-            <div class="settings-grid">
-              <label data-mode-field="count">
-                <span>导出总帧数</span>
-                <input name="frameCount" type="number" min="1" max="240" value="12" />
-              </label>
-              <label data-mode-field="fps">
-                <span>采样帧率 FPS</span>
-                <input name="sampleFps" type="number" min="0.1" max="60" step="0.1" value="1" />
-              </label>
-              <label>
-                <span>开始时间（秒，可空）</span>
-                <input name="startSec" type="number" min="0" step="0.01" placeholder="0" />
-              </label>
-              <label>
-                <span>结束时间（秒，可空）</span>
-                <input name="endSec" type="number" min="0" step="0.01" placeholder="自动" />
-              </label>
+              <div class="settings-grid">
+                <label data-mode-field="count">
+                  <span>导出总帧数</span>
+                  <input name="frameCount" type="number" min="1" max="240" value="12" />
+                </label>
+                <label data-mode-field="fps">
+                  <span>采样帧率 FPS</span>
+                  <input name="sampleFps" type="number" min="0.1" max="60" step="0.1" value="1" />
+                </label>
+                <label>
+                  <span>开始时间（秒，可空）</span>
+                  <input name="startSec" type="number" min="0" step="0.01" placeholder="0" />
+                </label>
+                <label>
+                  <span>结束时间（秒，可空）</span>
+                  <input name="endSec" type="number" min="0" step="0.01" placeholder="自动" />
+                </label>
+              </div>
             </div>
           </div>
 
@@ -775,7 +638,7 @@
             <label>
               <span>抠图方式</span>
               <select name="backgroundMode" id="backgroundMode">
-                <option value="auto">自动评估抠图（推荐批量 UI）</option>
+                <option value="auto">自动评估抠图（推荐批量素材）</option>
                 <option value="ui">UI 安全抠图（保留按钮/面板内部）</option>
                 <option value="u2netp" selected>U2Net-p 轻量抠图（推荐，2G 服务器可用）</option>
                 <option value="u2net">U2Net 标准抠图（精度更高，需 4G+ 内存）</option>
@@ -831,6 +694,21 @@
       -->
     </div>
 
-    <script src="/app.js?v=20260630-topbar"></script>
+    <div class="video-lightbox" id="motionLightbox" hidden>
+      <div class="video-lightbox-backdrop" data-lightbox-close></div>
+      <section class="video-lightbox-card" role="dialog" aria-modal="true" aria-labelledby="motionLightboxTitle">
+        <div class="video-lightbox-head">
+          <strong id="motionLightboxTitle">动作预览</strong>
+          <button type="button" class="video-lightbox-close" data-lightbox-close aria-label="关闭">
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+        <div class="video-lightbox-body">
+          <video id="motionLightboxVideo" controls loop playsinline></video>
+        </div>
+      </section>
+    </div>
+
+    <script src="/app.js?v=20260701-lightbox"></script>
   </body>
 </html>

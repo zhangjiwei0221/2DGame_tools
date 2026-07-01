@@ -22,12 +22,11 @@ open http://localhost:5177
 
 | URL | 工具 | 依赖 |
 |----|------|------|
-| `/` | 首页(6 个工具卡片) | — |
+| `/` | 首页(工具卡片) | — |
 | `/tools/character` | AI 生图 | 豆包 Seedream / MiniMax / OpenAI |
-| `/tools/cutout` | 图片抠图(单张或多张) | OpenCV + BiRefNet(本地) |
+| `/tools/cutout` | 图片抠图(单张或多张) | OpenCV + U2Net-p / BiRefNet(本地) |
 | `/tools/motion` | 动作视频 | 豆包 Seedance |
-| `/tools/frames` | 视频抽帧 | FFmpeg + BiRefNet(本地) |
-| `/tools/uiBatch` | 批量 UI 素材(表格) | 豆包 Seedream + BiRefNet(本地) |
+| `/tools/frames` | 视频抽帧 | FFmpeg + U2Net-p / BiRefNet(本地) |
 
 切换工具:点击 topbar 右侧工具下拉按钮,或在首页点工具卡片。
 
@@ -120,6 +119,13 @@ OPENAI_API_KEY=...
 ## 端口
 
 5177(可改 `.env` 的 `PORT`)
+
+## 文件编码
+
+本仓库所有源码与文档统一使用 **UTF-8(无 BOM)**。浏览器中中文显示正常。
+若在 Windows 终端(默认 GBK / 代码页 936)直接 `type README.md` 看到乱码,
+这是终端解码问题而非文件损坏,执行 `chcp 65001` 切到 UTF-8 即可正常显示;
+VS Code / 现代编辑器会自动识别,无需额外设置。
 
 ## 详细文档
 
